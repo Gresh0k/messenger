@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Вход</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .box{max-width:420px;margin:60px auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    label{display:block;margin:10px 0 4px}
+    input{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px}
+    button{width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:5px;cursor:pointer}
+    .error{color:#900;margin-bottom:10px;text-align:center}
+    a.switch{display:block;text-align:center;margin-top:10px;color:#007bff}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2 style="text-align:center">Вход</h2>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('login') }}">
+      <label>Логин</label>
+      <input type="text" name="username" required>
+
+      <label>Пароль</label>
+      <input type="password" name="password" required>
+
+      <button type="submit">Войти</button>
+    </form>
+
+    <a class="switch" href="{{ url_for('register') }}">Нет аккаунта? Зарегистрироваться</a>
+  </div>
+</body>
+</html>
