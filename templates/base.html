@@ -17,7 +17,7 @@
         </a>
         <div>
             {% if session.user_id %}
-                <span>{{ session.username }}</span> | <a href="/logout">Выйти</a>
+                <a href="/profile" class="nav-user-link">{{ session.username }}</a> | <a href="/logout">Выйти</a>
             {% endif %}
         </div>
     </nav>

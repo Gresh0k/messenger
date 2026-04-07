@@ -9,6 +9,7 @@ a:hover { color: #0056b3; }
 .navbar .brand { display: inline-flex; align-items: center; gap: 10px; }
 .navbar .brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; }
 .navbar .logo { font-size: 24px; font-weight: bold; color: #0084ff; letter-spacing: 1px; }
+.nav-user-link { font-weight: 600; color: #1c1e21; }
 
 /* КОНТЕЙНЕРЫ */
 .container { max-width: 900px; margin: 20px auto; padding: 0 15px; }
@@ -36,7 +37,11 @@ a:hover { color: #0056b3; }
 .flash { background: #fee; color: #c00; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 1px solid #fcc; }
 
 /* ЧАТ: ОКНО */
+.chat-layout { display: flex; gap: 0; height: 80vh; background: #fff; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+.chat-sidebar { width: 280px; border-right: 1px solid #e5e7eb; background: #fafafa; overflow-y: auto; padding: 10px; }
+.chat-sidebar-title { font-size: 14px; font-weight: 700; color: #667085; margin: 6px 8px 10px; text-transform: uppercase; letter-spacing: 0.5px; }
 .chat-window { background: #fff; height: 80vh; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+.chat-layout .chat-window { flex: 1; height: 100%; border-radius: 0; box-shadow: none; }
 .chat-header { padding: 15px 20px; background: #f8f9fa; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 14px; }
 .chat-header b { color: #1c1e21; font-size: 16px; }
 .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #e5ddd5; }
@@ -47,6 +52,8 @@ a:hover { color: #0056b3; }
 .other-message { align-self: flex-start; background: #fff; border-bottom-left-radius: 4px; }
 .msg-author { font-size: 12px; font-weight: bold; color: #075e54; margin-bottom: 5px; display: block; }
 .msg-time { font-size: 10px; color: #888; float: right; margin-top: 8px; margin-left: 10px; }
+.msg-status { font-size: 11px; color: #9aa3af; float: right; margin-top: 8px; margin-left: 6px; font-weight: 700; }
+.msg-status.read { color: #22a4f2; }
 
 /* ВЛОЖЕНИЯ В ЧАТЕ */
 .msg-attachment img, .msg-attachment video { max-width: 100%; border-radius: 12px; margin-top: 10px; }
@@ -66,11 +73,20 @@ a:hover { color: #0056b3; }
 .dialogs-title { margin-top: 20px; }
 .dialog-item { display: flex; justify-content: space-between; gap: 14px; background: #fff; padding: 14px 15px; margin-top: 10px; border-radius: 10px; border-left: 5px solid #0084ff; color: inherit; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .dialog-item:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.side-item { border-left: 0; margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: transparent; box-shadow: none; }
+.side-item:hover { transform: none; box-shadow: none; background: #f1f5f9; }
+.side-item.active { background: #e0f2fe; }
 .dialog-main { min-width: 0; }
 .dialog-name { font-weight: 700; color: #1c1e21; }
 .dialog-preview { margin-top: 3px; color: #667085; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 650px; }
 .dialog-time { color: #98a2b3; font-size: 12px; white-space: nowrap; }
 .empty-state { margin-top: 10px; background: #fff; border-radius: 10px; padding: 14px; color: #667085; border: 1px dashed #cfd4dc; }
+
+/* ПРОФИЛЬ */
+.profile-card { max-width: 520px; margin: 20px auto; background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.profile-card h2 { margin-bottom: 4px; }
+.profile-username { margin-bottom: 24px; color: #667085; }
+.profile-form .btn-primary { margin-top: 8px; }
 
 /* СТРАНИЦА СОГЛАШЕНИЯ */
 .terms-card { background: #fff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }

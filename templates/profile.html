@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="profile-card">
+    <h2>Профиль</h2>
+    <p class="profile-username">@{{ user.username }}</p>
+
+    <form method="POST" class="profile-form">
+        <div class="input-group">
+            <label for="phone">Номер телефона</label>
+            <input id="phone" name="phone" type="text" placeholder="+7 999 123-45-67" value="{{ user.phone or '' }}">
+        </div>
+
+        <div class="input-group">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="example@mail.com" value="{{ user.email or '' }}">
+        </div>
+
+        <div class="input-group">
+            <label for="birth_date">Дата рождения</label>
+            <input id="birth_date" name="birth_date" type="date" value="{{ user.birth_date or '' }}">
+        </div>
+
+        <button type="submit" class="btn-primary">Сохранить</button>
+    </form>
+</div>
+{% endblock %}

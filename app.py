@@ -41,6 +41,14 @@ def init_db():
     # Таблица пользователей
     cur.execute(
         "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)")
+    # Мягкая миграция профиля для уже существующей базы
+    existing_cols = {row["name"] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
+    if "phone" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+    if "email" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    if "birth_date" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN birth_date TEXT")
     # Таблица чатов
     cur.execute("CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, is_group INTEGER)")
     # Таблица участников чатов
@@ -50,6 +58,11 @@ def init_db():
     cur.execute("""CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, sender_id INTEGER, 
         text TEXT, file_path TEXT, file_type TEXT, timestamp TEXT)""")
+    msg_cols = {row["name"] for row in cur.execute("PRAGMA table_info(messages)").fetchall()}
+    if "delivered_at" not in msg_cols:
+        cur.execute("ALTER TABLE messages ADD COLUMN delivered_at TEXT")
+    if "read_at" not in msg_cols:
+        cur.execute("ALTER TABLE messages ADD COLUMN read_at TEXT")
     # Индексы для ускорения выборок в диалогах и сообщениях
     cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_members_chat_user ON chat_members(chat_id, user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id ON messages(chat_id, id)")
@@ -152,6 +165,16 @@ def chat_room(chat_id):
 
 
 def serialize_message(row, current_user_id):
+    if row["sender_id"] == current_user_id:
+        if row["read_at"]:
+            status = "read"
+        elif row["delivered_at"]:
+            status = "delivered"
+        else:
+            status = "sent"
+    else:
+        status = ""
+
     return {
         "id": row["id"],
         "sender_id": row["sender_id"],
@@ -161,7 +184,59 @@ def serialize_message(row, current_user_id):
         "file_type": row["file_type"],
         "timestamp": row["timestamp"],
         "is_mine": row["sender_id"] == current_user_id,
+        "status": status,
     }
+
+
+def mark_messages_delivered_for_user(conn, current_user_id):
+    pending = conn.execute(
+        """
+        SELECT m.id
+        FROM messages m
+        JOIN chat_members cm ON cm.chat_id = m.chat_id
+        WHERE cm.user_id = ?
+          AND m.sender_id != ?
+          AND m.delivered_at IS NULL
+        """,
+        (current_user_id, current_user_id),
+    ).fetchall()
+    if not pending:
+        return []
+
+    now_ts = datetime.now().strftime("%H:%M")
+    ids = [row["id"] for row in pending]
+    conn.execute(
+        f"UPDATE messages SET delivered_at = ? WHERE id IN ({','.join('?' for _ in ids)})",
+        [now_ts, *ids],
+    )
+    return ids
+
+
+def mark_chat_messages_read(conn, chat_id, current_user_id):
+    pending = conn.execute(
+        """
+        SELECT id
+        FROM messages
+        WHERE chat_id = ?
+          AND sender_id != ?
+          AND read_at IS NULL
+        ORDER BY id ASC
+        """,
+        (chat_id, current_user_id),
+    ).fetchall()
+    if not pending:
+        return []
+
+    now_ts = datetime.now().strftime("%H:%M")
+    ids = [row["id"] for row in pending]
+    conn.execute(
+        f"""UPDATE messages
+            SET delivered_at = COALESCE(delivered_at, ?),
+                read_at = ?
+            WHERE id IN ({','.join('?' for _ in ids)})""",
+        [now_ts, now_ts, *ids],
+    )
+    return ids
 
 
 # ================= МАРШРУТЫ (ROUTES) =================
@@ -236,11 +311,50 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    conn = get_db()
+    current_user_id = session["user_id"]
+
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        email = request.form.get("email", "").strip()
+        birth_date = request.form.get("birth_date", "").strip()
+
+        if phone and not re.match(r'^\+?[0-9\-\s\(\)]{7,20}$', phone):
+            flash("Неверный формат телефона.")
+        elif email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            flash("Неверный формат email.")
+        elif birth_date and not re.match(r'^\d{4}-\d{2}-\d{2}$', birth_date):
+            flash("Неверный формат даты рождения.")
+        else:
+            conn.execute(
+                "UPDATE users SET phone = ?, email = ?, birth_date = ? WHERE id = ?",
+                (phone or None, email or None, birth_date or None, current_user_id),
+            )
+            conn.commit()
+            flash("Профиль обновлен.")
+            conn.close()
+            return redirect(url_for("profile"))
+
+    user = conn.execute(
+        "SELECT username, phone, email, birth_date FROM users WHERE id = ?",
+        (current_user_id,),
+    ).fetchone()
+    conn.close()
+    return render_template("profile.html", user=user)
+
+
 @app.route("/chats", methods=["GET", "POST"])
 @login_required
 def chats_list():
     conn = get_db()
     current_user_id = session["user_id"]
+
+    delivered_ids = mark_messages_delivered_for_user(conn, current_user_id)
+    if delivered_ids:
+        conn.commit()
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -291,6 +405,17 @@ def view_chat(chat_id):
         conn.close()
         return "Собеседник не найден", 404
 
+    read_ids = mark_chat_messages_read(conn, chat_id, current_user_id)
+    if read_ids:
+        conn.commit()
+        if socketio:
+            for message_id in read_ids:
+                socketio.emit(
+                    "message_status",
+                    {"message_id": message_id, "status": "read"},
+                    room=chat_room(chat_id),
+                )
+
     if request.method == "POST":
         text = request.form.get("text", "").strip()
         file = request.files.get("file")
@@ -313,8 +438,8 @@ def view_chat(chat_id):
         else:
             ts = datetime.now().strftime("%H:%M")
             cur = conn.execute(
-                "INSERT INTO messages (chat_id, sender_id, text, file_path, file_type, timestamp) VALUES (?,?,?,?,?,?)",
-                (chat_id, current_user_id, text, f_path, f_type, ts))
+                "INSERT INTO messages (chat_id, sender_id, text, file_path, file_type, timestamp, delivered_at, read_at) VALUES (?,?,?,?,?,?,?,?)",
+                (chat_id, current_user_id, text, f_path, f_type, ts, None, None))
             message_id = cur.lastrowid
             conn.commit()
 
@@ -330,8 +455,15 @@ def view_chat(chat_id):
             return redirect(url_for("view_chat", chat_id=chat_id))
 
     messages = get_chat_messages(conn, chat_id)
+    dialogs = get_dialog_list(conn, current_user_id)
     conn.close()
-    return render_template("chat.html", chat_id=chat_id, messages=messages, partner_username=partner["username"])
+    return render_template(
+        "chat.html",
+        chat_id=chat_id,
+        messages=messages,
+        partner_username=partner["username"],
+        dialogs=dialogs,
+    )
 
 
 @app.route("/chat/<int:chat_id>/messages")
@@ -357,6 +489,16 @@ def chat_messages(chat_id):
            ORDER BY m.id ASC""",
         (chat_id, after_id),
     ).fetchall()
+    read_ids = mark_chat_messages_read(conn, chat_id, current_user_id)
+    if read_ids:
+        conn.commit()
+        if socketio:
+            for message_id in read_ids:
+                socketio.emit(
+                    "message_status",
+                    {"message_id": message_id, "status": "read"},
+                    room=chat_room(chat_id),
+                )
     conn.close()
 
     payload = []
@@ -394,6 +536,17 @@ if socketio:
             return
         join_room(chat_room(chat_id))
         emit("joined_chat", {"chat_id": chat_id})
+        conn = get_db()
+        read_ids = mark_chat_messages_read(conn, chat_id, session["user_id"])
+        if read_ids:
+            conn.commit()
+            for message_id in read_ids:
+                socketio.emit(
+                    "message_status",
+                    {"message_id": message_id, "status": "read"},
+                    room=chat_room(chat_id),
+                )
+        conn.close()
 
 
 @app.route('/uploads/<name>')

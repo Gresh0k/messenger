@@ -1,31 +1,63 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="chat-window">
-    <div class="chat-header">
-        <a href="/chats">Назад</a>
-        <b>{{ partner_username }}</b>
-    </div>
-    <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
-        {% for m in messages %}
-            <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
-                <span class="msg-author">{{ m.sender_name }}</span>
-                {% if m.text %}<p>{{ m.text }}</p>{% endif %}
-                {% if m.file_path %}
-                    <div class="msg-attachment">
-                        {% if m.file_type == 'image' %}<img src="/uploads/{{ m.file_path }}">
-                        {% elif m.file_type == 'video' %}<video src="/uploads/{{ m.file_path }}" controls></video>
-                        {% else %}<a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>{% endif %}
+<div class="chat-layout">
+    <aside class="chat-sidebar">
+        <div class="chat-sidebar-title">Диалоги</div>
+        {% for d in dialogs %}
+            <a href="/chat/{{ d.id }}" class="dialog-item side-item {% if d.id == chat_id %}active{% endif %}">
+                <div class="dialog-main">
+                    <div class="dialog-name">{{ d.other_username }}</div>
+                    <div class="dialog-preview">
+                        {% if d.last_text %}
+                            {{ d.last_text }}
+                        {% elif d.last_file_path %}
+                            {% if d.last_file_type == 'image' %}
+                                Фото
+                            {% elif d.last_file_type == 'video' %}
+                                Видео
+                            {% else %}
+                                Файл
+                            {% endif %}
+                        {% else %}
+                            Диалог создан
+                        {% endif %}
                     </div>
-                {% endif %}
-                <span class="msg-time">{{ m.timestamp }}</span>
-            </div>
+                </div>
+            </a>
         {% endfor %}
+    </aside>
+
+    <div class="chat-window">
+        <div class="chat-header">
+            <b>{{ partner_username }}</b>
+        </div>
+        <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
+            {% for m in messages %}
+                <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
+                    <span class="msg-author">{{ m.sender_name }}</span>
+                    {% if m.text %}<p>{{ m.text }}</p>{% endif %}
+                    {% if m.file_path %}
+                        <div class="msg-attachment">
+                            {% if m.file_type == 'image' %}<img src="/uploads/{{ m.file_path }}">
+                            {% elif m.file_type == 'video' %}<video src="/uploads/{{ m.file_path }}" controls></video>
+                            {% else %}<a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>{% endif %}
+                        </div>
+                    {% endif %}
+                    <span class="msg-time">{{ m.timestamp }}</span>
+                {% if m.sender_id == session.user_id %}
+                    <span class="msg-status" data-message-id="{{ m.id }}">
+                        {% if m.read_at %}✓✓{% elif m.delivered_at %}✓✓{% else %}✓{% endif %}
+                    </span>
+                {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <form method="POST" class="chat-input-area" enctype="multipart/form-data">
+            <label class="attach-label">+<input type="file" name="file" style="display:none;"></label>
+            <input type="text" name="text" placeholder="Сообщение...">
+            <button type="submit" class="btn-primary btn-auto send-btn">Отправить</button>
+        </form>
     </div>
-    <form method="POST" class="chat-input-area" enctype="multipart/form-data">
-        <label class="attach-label">+<input type="file" name="file" style="display:none;"></label>
-        <input type="text" name="text" placeholder="Сообщение...">
-        <button type="submit" class="btn-primary btn-auto send-btn">Отправить</button>
-    </form>
 </div>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
 <script>
@@ -77,7 +109,33 @@
         time.textContent = m.timestamp;
         msgDiv.appendChild(time);
 
+        if (m.is_mine) {
+            const status = document.createElement("span");
+            status.className = "msg-status";
+            status.dataset.messageId = String(m.id);
+            status.textContent = m.status === "read" || m.status === "delivered" ? "✓✓" : "✓";
+            if (m.status === "read") {
+                status.classList.add("read");
+            }
+            msgDiv.appendChild(status);
+        }
+
         chatBox.appendChild(msgDiv);
+    }
+
+    function applyMessageStatus(messageId, status) {
+        const el = document.querySelector(`.msg-status[data-message-id="${messageId}"]`);
+        if (!el) return;
+        if (status === "read") {
+            el.textContent = "✓✓";
+            el.classList.add("read");
+        } else if (status === "delivered") {
+            el.textContent = "✓✓";
+            el.classList.remove("read");
+        } else {
+            el.textContent = "✓";
+            el.classList.remove("read");
+        }
     }
 
     async function fetchNewMessages() {
@@ -107,6 +165,10 @@
             appendMessage(m);
             chatBox.dataset.lastId = String(m.id);
             chatBox.scrollTop = chatBox.scrollHeight;
+        });
+        socket.on("message_status", function(payload) {
+            if (!payload || !payload.message_id || !payload.status) return;
+            applyMessageStatus(payload.message_id, payload.status);
         });
     } else {
         setInterval(fetchNewMessages, 2500);
