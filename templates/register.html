@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-box">
+    <h2>Регистрация в Keepy</h2>
+    <form method="POST">
+        <div class="input-group">
+            <label>Придумайте логин</label>
+            <input type="text" name="username" required>
+        </div>
+        <div class="input-group">
+            <label>Придумайте пароль</label>
+            <input type="password" name="password" required>
+        </div>
+
+        <div class="rules-box">
+            <b>Критерии безопасности:</b>
+            <ul>
+                <li>Логин: 4-20 знаков (латиница и "_")</li>
+                <li>Пароль: 8+ знаков, заглавная, строчная и цифра</li>
+            </ul>
+        </div>
+
+        <!-- Галочка соглашения -->
+        <label class="agreement-group">
+            <input type="checkbox" name="agreement" required>
+            <span>Я прочитал и принимаю <a href="{{ url_for('terms') }}" target="_blank">пользовательское соглашение</a></span>
+        </label>
+
+        <button type="submit" class="btn-primary">Создать аккаунт</button>
+    </form>
+    <br><a href="/login">Уже есть аккаунт? Войти</a>
+</div>
+{% endblock %}

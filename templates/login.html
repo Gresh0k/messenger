@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-box">
+    <h2>Вход</h2>
+    <form method="POST">
+        <div class="input-group">
+            <label>Логин</label>
+            <input type="text" name="username" required>
+        </div>
+        <div class="input-group">
+            <label>Пароль</label>
+            <input type="password" name="password" required>
+        </div>
+        <button type="submit" class="btn-primary">Войти</button>
+    </form>
+    <br><a href="/register">Еще нет аккаунта? Зарегистрироваться</a>
+</div>
+{% endblock %}
