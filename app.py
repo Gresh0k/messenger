@@ -49,6 +49,10 @@ def init_db():
         cur.execute("ALTER TABLE users ADD COLUMN email TEXT")
     if "birth_date" not in existing_cols:
         cur.execute("ALTER TABLE users ADD COLUMN birth_date TEXT")
+    if "agreement_accepted_at" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN agreement_accepted_at TEXT")
+    if "privacy_accepted_at" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN privacy_accepted_at TEXT")
     # Таблица чатов
     cur.execute("CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, is_group INTEGER)")
     # Таблица участников чатов
@@ -58,6 +62,17 @@ def init_db():
     cur.execute("""CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, sender_id INTEGER, 
         text TEXT, file_path TEXT, file_type TEXT, timestamp TEXT)""")
+    # Адресная книга
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS contacts (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           owner_user_id INTEGER NOT NULL,
+           contact_user_id INTEGER NOT NULL,
+           note TEXT,
+           created_at TEXT,
+           UNIQUE(owner_user_id, contact_user_id)
+        )"""
+    )
     msg_cols = {row["name"] for row in cur.execute("PRAGMA table_info(messages)").fetchall()}
     if "delivered_at" not in msg_cols:
         cur.execute("ALTER TABLE messages ADD COLUMN delivered_at TEXT")
@@ -66,6 +81,7 @@ def init_db():
     # Индексы для ускорения выборок в диалогах и сообщениях
     cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_members_chat_user ON chat_members(chat_id, user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_id_id ON messages(chat_id, id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_owner ON contacts(owner_user_id)")
     conn.commit()
     conn.close()
 
@@ -79,6 +95,20 @@ def login_required(f):
         return f(*args, **kwargs)
 
     return decorated
+
+
+def validate_username(username):
+    lowered = username.lower()
+    reserved = {"admin", "root", "support", "system", "keepy"}
+    if lowered in reserved:
+        return "Этот логин зарезервирован."
+    if not re.match(r'^[a-zA-Z0-9_]{4,20}$', username):
+        return "Логин должен быть от 4 до 20 символов (латиница, цифры и '_')."
+    if username.startswith("_") or username.endswith("_") or "__" in username:
+        return "Логин не должен начинаться/заканчиваться '_' или содержать '__'."
+    if username.isdigit():
+        return "Логин не может состоять только из цифр."
+    return None
 
 
 def find_private_chat_id(conn, user_a_id, user_b_id):
@@ -242,8 +272,9 @@ def mark_chat_messages_read(conn, chat_id, current_user_id):
 # ================= МАРШРУТЫ (ROUTES) =================
 @app.route("/")
 def index():
-    if 'user_id' in session: return redirect(url_for("chats_list"))
-    return redirect(url_for("login"))
+    if 'user_id' in session:
+        return redirect(url_for("chats_list"))
+    return render_template("landing.html")
 
 
 @app.route("/terms")
@@ -252,21 +283,27 @@ def terms():
     return render_template("terms.html", date=now_date)
 
 
+@app.route("/privacy")
+def privacy():
+    now_date = datetime.now().strftime("%d.%m.%Y")
+    return render_template("privacy.html", date=now_date)
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        agreement = request.form.get("agreement")  # Проверка чекбокса соглашения
+        agreement = request.form.get("agreement")
+        privacy_agreement = request.form.get("privacy_agreement")
 
-        # 1. Проверка чекбокса
-        if not agreement:
-            flash("Вы должны принять условия соглашения для регистрации!")
+        if not agreement or not privacy_agreement:
+            flash("Для регистрации нужно принять соглашение и политику обработки данных.")
             return render_template("register.html")
 
-        # 2. Валидация логина (4-20 символов, латиница, цифры, _)
-        if not re.match(r'^[a-zA-Z0-9_]{4,20}$', username):
-            flash("Логин должен быть от 4 до 20 символов (только латиница, цифры и '_')")
+        username_error = validate_username(username)
+        if username_error:
+            flash(username_error)
             return render_template("register.html")
 
         # 3. Валидация пароля (мин 8 знаков, заглавная, строчная, цифра)
@@ -278,7 +315,13 @@ def register():
         conn = get_db()
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         try:
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed))
+            now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                """INSERT INTO users
+                   (username, password, agreement_accepted_at, privacy_accepted_at)
+                   VALUES (?, ?, ?, ?)""",
+                (username, hashed, now_ts, now_ts),
+            )
             conn.commit()
             flash("Регистрация успешна! Теперь вы можете войти.")
             return redirect(url_for("login"))
@@ -344,6 +387,82 @@ def profile():
     ).fetchone()
     conn.close()
     return render_template("profile.html", user=user)
+
+
+@app.route("/contacts", methods=["GET", "POST"])
+@login_required
+def contacts():
+    conn = get_db()
+    current_user_id = session["user_id"]
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        note = request.form.get("note", "").strip()
+        target_user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+
+        if not username:
+            flash("Введите username контакта.")
+        elif not target_user:
+            flash("Пользователь не найден.")
+        elif target_user["id"] == current_user_id:
+            flash("Нельзя добавить самого себя.")
+        else:
+            try:
+                conn.execute(
+                    "INSERT INTO contacts (owner_user_id, contact_user_id, note, created_at) VALUES (?, ?, ?, ?)",
+                    (current_user_id, target_user["id"], note or None, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                )
+                conn.commit()
+                flash("Контакт добавлен в адресную книгу.")
+            except sqlite3.IntegrityError:
+                flash("Этот контакт уже есть в адресной книге.")
+
+    contact_rows = conn.execute(
+        """
+        SELECT c.id, u.username, c.note, c.created_at
+        FROM contacts c
+        JOIN users u ON u.id = c.contact_user_id
+        WHERE c.owner_user_id = ?
+        ORDER BY u.username ASC
+        """,
+        (current_user_id,),
+    ).fetchall()
+    users = conn.execute("SELECT username FROM users WHERE id != ? ORDER BY username ASC", (current_user_id,)).fetchall()
+    conn.close()
+    return render_template("contacts.html", contacts=contact_rows, users=users)
+
+
+@app.route("/contacts/delete/<int:contact_id>", methods=["POST"])
+@login_required
+def delete_contact(contact_id):
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM contacts WHERE id = ? AND owner_user_id = ?",
+        (contact_id, session["user_id"]),
+    )
+    conn.commit()
+    conn.close()
+    flash("Контакт удален.")
+    return redirect(url_for("contacts"))
+
+
+@app.route("/start-chat/<username>")
+@login_required
+def start_chat(username):
+    conn = get_db()
+    current_user_id = session["user_id"]
+    target_user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if not target_user:
+        conn.close()
+        flash("Пользователь не найден.")
+        return redirect(url_for("contacts"))
+    if target_user["id"] == current_user_id:
+        conn.close()
+        flash("Нельзя начать диалог с самим собой.")
+        return redirect(url_for("contacts"))
+    chat_id = get_or_create_private_chat(conn, current_user_id, target_user["id"])
+    conn.close()
+    return redirect(url_for("view_chat", chat_id=chat_id))
 
 
 @app.route("/chats", methods=["GET", "POST"])
@@ -555,8 +674,4 @@ def download_file(name):
 
 
 if __name__ == "__main__":
-    init_db()
-    if socketio:
-        socketio.run(app, debug=True)
-    else:
-        app.run(debug=True)
+    socketio.run(app,host ="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

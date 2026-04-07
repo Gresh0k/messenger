@@ -7,7 +7,7 @@ a:hover { color: #0056b3; }
 /* НАВИГАЦИЯ */
 .navbar { background: #fff; padding: 15px 10%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .navbar .brand { display: inline-flex; align-items: center; gap: 10px; }
-.navbar .brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; }
+.navbar .brand-logo { width: 48px; height: 48px; object-fit: contain; border-radius: 10px; }
 .navbar .logo { font-size: 24px; font-weight: bold; color: #0084ff; letter-spacing: 1px; }
 .nav-user-link { font-weight: 600; color: #1c1e21; }
 
@@ -32,6 +32,8 @@ a:hover { color: #0056b3; }
 .btn-primary { background: #0084ff; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; display: inline-block; text-align: center; }
 .btn-primary:hover { background: #0073e6; transform: translateY(-1px); }
 .btn-auto { width: auto; }
+.btn-danger { background: #ef4444; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn-danger:hover { background: #dc2626; }
 
 /* УВЕДОМЛЕНИЯ */
 .flash { background: #fee; color: #c00; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 1px solid #fcc; }
@@ -87,6 +89,11 @@ a:hover { color: #0056b3; }
 .profile-card h2 { margin-bottom: 4px; }
 .profile-username { margin-bottom: 24px; color: #667085; }
 .profile-form .btn-primary { margin-top: 8px; }
+
+/* ТИТУЛЬНЫЙ ЛИСТ И КОНТАКТЫ */
+.landing-actions { margin-top: 24px; display: grid; gap: 10px; }
+.contact-item { margin-top: 10px; background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #e5e7eb; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.contact-actions { display: flex; gap: 8px; align-items: center; }
 
 /* СТРАНИЦА СОГЛАШЕНИЯ */
 .terms-card { background: #fff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
