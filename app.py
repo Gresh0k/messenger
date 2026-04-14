@@ -145,6 +145,7 @@ def get_or_create_private_chat(conn, user_a_id, user_b_id):
 
 
 def get_dialog_list(conn, current_user_id):
+    # ИЗМЕНЕНИЕ: Добавлен подзапрос для подсчета непрочитанных сообщений (unread_count)
     return conn.execute(
         """
         SELECT
@@ -153,7 +154,14 @@ def get_dialog_list(conn, current_user_id):
             m.text AS last_text,
             m.file_path AS last_file_path,
             m.file_type AS last_file_type,
-            m.timestamp AS last_timestamp
+            m.timestamp AS last_timestamp,
+            (
+                SELECT COUNT(*) 
+                FROM messages mx 
+                WHERE mx.chat_id = c.id 
+                  AND mx.sender_id != ? 
+                  AND mx.read_at IS NULL
+            ) AS unread_count
         FROM chats c
         JOIN chat_members my_cm ON my_cm.chat_id = c.id AND my_cm.user_id = ?
         JOIN chat_members other_cm ON other_cm.chat_id = c.id AND other_cm.user_id != ?
@@ -165,7 +173,7 @@ def get_dialog_list(conn, current_user_id):
           AND (SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id) = 2
         ORDER BY COALESCE(m.id, 0) DESC, c.id DESC
         """,
-        (current_user_id, current_user_id),
+        (current_user_id, current_user_id, current_user_id),
     ).fetchall()
 
 
