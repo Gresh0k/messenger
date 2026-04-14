@@ -102,8 +102,8 @@ def validate_username(username):
     reserved = {"admin", "root", "support", "system", "keepy"}
     if lowered in reserved:
         return "Этот логин зарезервирован."
-    if not re.match(r'^[a-zA-Z0-9_]{4,20}$', username):
-        return "Логин должен быть от 4 до 20 символов (латиница, цифры и '_')."
+    if not re.match(r'^[a-zA-Z0-9_]{4,10}$', username):
+        return "Логин должен быть от 4 до 10 символов (латиница, цифры и '_')."
     if username.startswith("_") or username.endswith("_") or "__" in username:
         return "Логин не должен начинаться/заканчиваться '_' или содержать '__'."
     if username.isdigit():
@@ -306,10 +306,10 @@ def register():
             flash(username_error)
             return render_template("register.html")
 
-        # 3. Валидация пароля (мин 8 знаков, заглавная, строчная, цифра)
-        if len(password) < 8 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(
+        # 3. Валидация пароля (мин 5 знаков, заглавная, строчная, цифра)
+        if len(password) < 5 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(
                 r'\d', password):
-            flash("Пароль слишком простой! Нужно: 8+ знаков, заглавная буква, строчная буква и цифра.")
+            flash("Пароль слишком простой! Нужно: 5+ знаков, заглавная буква, строчная буква и цифра.")
             return render_template("register.html")
 
         conn = get_db()
