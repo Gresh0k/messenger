@@ -23,10 +23,56 @@ a:hover { color: #0056b3; }
 .input-group input:focus { border-color: #0084ff; box-shadow: 0 0 0 3px rgba(0,132,255,0.1); }
 
 /* ПРАВИЛА И ЧЕКБОКС */
-.rules-box { background: #f8f9fa; padding: 15px; font-size: 13px; color: #666; border-radius: 10px; margin-bottom: 20px; text-align: left; border: 1px solid #eee; }
-.rules-box b { color: #333; }
-.agreement-group { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 30px; text-align: left; font-size: 14px; cursor: pointer; }
-.agreement-group input { width: 20px; height: 20px; margin-top: 2px; }
+.rules-box {
+    background: #f8f9fa;
+    padding: 15px 17px;
+    font-size: 13px;
+    color: #666;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: left;
+    border: 1px solid #eee;
+}
+
+.rules-box b {
+    color: #333;
+    display: block;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.rules-box ul {
+    padding: 0;
+    margin: 0;
+    list-style-position: inside;
+    padding-left: 5px;
+}
+
+.rules-box li {
+    margin-bottom: 1px;
+    padding-left: 0px;
+    line-height: 1.5;
+}
+
+.rules-box li:last-child {
+    margin-bottom: 0;
+}
+
+.agreement-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 30px;
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.agreement-group input {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+}
 
 /* КНОПКИ */
 .btn-primary { background: #0084ff; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; display: inline-block; text-align: center; }
@@ -98,10 +144,10 @@ a:hover { color: #0056b3; }
 /* СТРАНИЦА СОГЛАШЕНИЯ */
 .terms-card { background: #fff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
 .terms-content {
-    max-height: 450px;
+    max-height: 470px;
     overflow-y: auto;
     padding: 20px;
-    margin: 20px 0;
+    margin: 20px 20px;
     border: 1px solid #eee;
     border-radius: 12px;
     background: #fafafa;
@@ -114,3 +160,59 @@ a:hover { color: #0056b3; }
 /* Скроллбар для текста соглашения */
 .terms-content::-webkit-scrollbar { width: 6px; }
 .terms-content::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+
+.file-preview-container {
+    padding: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.file-preview-container.hidden {
+    display: none;
+}
+
+.file-preview-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(30,30,30,0.9);
+    border-radius: 12px;
+    padding: 10px;
+    max-width: 300px;
+}
+
+.preview-content img,
+.preview-content video {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+}
+
+#file-name {
+    font-weight: 500;
+}
+
+#file-size {
+    opacity: 0.6;
+    font-size: 12px;
+}
+
+.remove-file {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #444;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    color: white;
+    cursor: pointer;
+}
