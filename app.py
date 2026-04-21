@@ -297,6 +297,11 @@ def privacy():
     return render_template("privacy.html", date=now_date)
 
 
+@app.route("/developers")
+def developers():
+    return render_template("developers.html")
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":

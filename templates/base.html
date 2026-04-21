@@ -17,10 +17,12 @@
         </a>
         <div>
             {% if session.user_id %}
+                <a href="/developers">Разработчики</a> |
                 <a href="/contacts">Контакты</a> |
                 <a href="/profile" class="nav-user-link">{{ session.username }}</a> |
                 <a href="/logout">Выйти</a>
             {% else %}
+                <a href="/developers">Разработчики</a> |
                 <a href="/terms">Соглашение</a> |
                 <a href="/privacy">Персональные данные</a> |
                 <a href="/login">Войти</a>
