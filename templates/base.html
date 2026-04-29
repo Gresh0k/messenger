@@ -15,17 +15,23 @@
             >
             <span class="logo">KEEPY</span>
         </a>
-        <div>
+        <div class="nav-links">
             {% if session.user_id %}
-                <a href="/developers">Разработчики</a> |
-                <a href="/contacts">Контакты</a> |
-                <a href="/profile" class="nav-user-link">{{ session.username }}</a> |
-                <a href="/logout">Выйти</a>
+                <div class="nav-actions">
+                    <a href="/favorites" class="nav-btn nav-btn-ghost">Избранное</a>
+                    <a href="/settings" class="nav-btn nav-btn-ghost">Настройки</a>
+                    <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
+                    <a href="/contacts" class="nav-btn nav-btn-ghost">Контакты</a>
+                    <a href="/profile" class="nav-btn nav-btn-ghost nav-user-link">{{ session.username }}</a>
+                    <a href="/logout" class="nav-btn nav-btn-primary">Выйти</a>
+                </div>
             {% else %}
-                <a href="/developers">Разработчики</a> |
-                <a href="/terms">Соглашение</a> |
-                <a href="/privacy">Персональные данные</a> |
-                <a href="/login">Войти</a>
+                <div class="nav-actions">
+                    <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
+                    <a href="/terms" class="nav-btn nav-btn-ghost">Соглашение</a>
+                    <a href="/privacy" class="nav-btn nav-btn-ghost">Персональные данные</a>
+                    <a href="/login" class="nav-btn nav-btn-primary">Войти</a>
+                </div>
             {% endif %}
         </div>
     </nav>
@@ -35,5 +41,38 @@
         {% endwith %}
         {% block content %}{% endblock %}
     </div>
+    {% if session.user_id %}
+    <nav class="bottom-nav">
+        <a href="{{ url_for('profile') }}" class="bottom-nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Профиль</span>
+        </a>
+        <a href="{{ url_for('favorites') }}" class="bottom-nav-item {% if request.endpoint == 'favorites' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Избранное</span>
+        </a>
+        <a href="{{ url_for('chats_list') }}" class="bottom-nav-item {% if request.endpoint in ['chats_list', 'view_chat'] %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Чаты</span>
+        </a>
+        <a href="{{ url_for('app_settings') }}" class="bottom-nav-item {% if request.endpoint == 'app_settings' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 512 512" aria-hidden="true">
+                <g fill="currentColor" transform="translate(256 256)">
+                    <rect x="-26" y="-242" width="52" height="86" rx="12"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(45)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(90)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(135)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(180)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(225)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(270)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(315)"/>
+                    <circle r="166"/>
+                    <circle r="74" fill="#121212"/>
+                </g>
+            </svg>
+            <span>Настройки</span>
+        </a>
+    </nav>
+    {% endif %}
 </body>
 </html>

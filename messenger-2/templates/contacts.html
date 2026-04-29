@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dialogs-card">
+    <h3>Адресная книга</h3>
+    <form method="POST" class="start-dialog-form" style="margin-top:14px;">
+        <input type="text" name="username" placeholder="Username контакта" list="contacts-users" required>
+        <datalist id="contacts-users">
+            {% for u in users %}
+                <option value="{{ u.username }}"></option>
+            {% endfor %}
+        </datalist>
+        <input type="text" name="note" placeholder="Заметка (необязательно)">
+        <button type="submit" class="btn-primary btn-auto">Добавить</button>
+    </form>
+</div>
+
+<h3 class="dialogs-title">Мои контакты</h3>
+{% if contacts %}
+    {% for c in contacts %}
+        <div class="contact-item">
+            <div>
+                <div class="dialog-name">{{ c.username }}</div>
+                {% if c.note %}<div class="dialog-preview">{{ c.note }}</div>{% endif %}
+            </div>
+            <div class="contact-actions">
+                <a href="{{ url_for('start_chat', username=c.username) }}" class="btn-primary btn-auto">Открыть чат</a>
+                <form method="POST" action="{{ url_for('delete_contact', contact_id=c.id) }}">
+                    <button class="btn-danger" type="submit">Удалить</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">Адресная книга пуста. Добавьте первый контакт по username.</div>
+{% endif %}
+{% endblock %}

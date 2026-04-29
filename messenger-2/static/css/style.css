@@ -1,16 +1,6 @@
 /* ОБЩИЕ СТИЛИ */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-body {
-    background-color: #0f172a;
-    background-image: url("/static/images/background_on_site.jpg"), url("/static/background_on_site.jpg");
-    background-position: center center;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-    color: #1c1e21;
-    line-height: 1.6;
-}
-body { padding-bottom: 78px; }
+body { background: #f0f2f5; color: #1c1e21; line-height: 1.6; }
 a { text-decoration: none; color: #0084ff; transition: 0.2s; }
 a:hover { color: #0056b3; }
 
@@ -19,39 +9,7 @@ a:hover { color: #0056b3; }
 .navbar .brand { display: inline-flex; align-items: center; gap: 10px; }
 .navbar .brand-logo { width: 48px; height: 48px; object-fit: contain; border-radius: 10px; }
 .navbar .logo { font-size: 24px; font-weight: bold; color: #0084ff; letter-spacing: 1px; }
-.nav-links { display: flex; align-items: center; }
-.nav-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-.nav-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    font-size: 14px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-}
-.nav-btn-ghost {
-    background: #eef2ff;
-    color: #1d4ed8;
-    border-color: #dbeafe;
-}
-.nav-btn-ghost:hover {
-    background: #e0edff;
-    color: #1e40af;
-}
-.nav-btn-primary {
-    background: linear-gradient(135deg, #0084ff, #2563eb);
-    color: #fff;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-}
-.nav-btn-primary:hover {
-    color: #fff;
-    filter: brightness(1.05);
-    transform: translateY(-1px);
-}
-.nav-user-link { font-weight: 700; color: #1e3a8a; }
+.nav-user-link { font-weight: 600; color: #1c1e21; }
 
 /* КОНТЕЙНЕРЫ */
 .container { max-width: 900px; margin: 20px auto; padding: 0 15px; }
@@ -191,12 +149,6 @@ a:hover { color: #0056b3; }
 
 /* СТРАНИЦА СОГЛАШЕНИЯ */
 .terms-card { background: #fff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
-.landing-card-dark {
-    background: rgba(0, 0, 0, 0.85);
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
-}
-.landing-card-dark h1 { color: #60a5fa !important; }
-.landing-card-dark p { color: #e5e7eb !important; }
 .terms-content {
     max-height: 470px;
     overflow-y: auto;
@@ -269,45 +221,4 @@ a:hover { color: #0056b3; }
     height: 22px;
     color: white;
     cursor: pointer;
-}
-
-/* НИЖНЯЯ НАВИГАЦИЯ */
-.bottom-nav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    background: rgba(18, 18, 18, 0.96);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(4px);
-    z-index: 1000;
-}
-
-.bottom-nav-item {
-    flex: 1;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    color: #9ca3af;
-    font-size: 12px;
-    font-weight: 500;
-    text-decoration: none;
-}
-
-.bottom-nav-icon {
-    width: 22px;
-    height: 22px;
-    fill: currentColor;
-}
-
-.bottom-nav-item:hover,
-.bottom-nav-item.active {
-    color: #8ab4ff;
 }

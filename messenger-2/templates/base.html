@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keepy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .mobile-bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: rgba(34, 34, 34, 0.96);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(6px);
+            min-height: 58px;
+        }
+        .mobile-bottom-nav .nav-item {
+            color: #8a8a8a;
+            text-decoration: none;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 8px 6px;
+            min-width: 64px;
+        }
+        .mobile-bottom-nav .nav-item.active,
+        .mobile-bottom-nav .nav-item:hover {
+            color: #a5b4fc;
+        }
+        .mobile-bottom-nav .nav-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        .container.with-bottom-nav {
+            padding-bottom: 78px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <img
+                src="{{ url_for('static', filename='images/logo.png') }}"
+                alt="KEEPY logo"
+                class="brand-logo"
+                onerror="if(!this.dataset.fallback1){this.dataset.fallback1='1';this.src='{{ url_for('static', filename='img/logo.png') }}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='{{ url_for('static', filename='logo.png') }}';}else{this.style.display='none';}"
+            >
+            <span class="logo">KEEPY</span>
+        </a>
+        <div>
+            {% if session.user_id %}
+                <a href="/developers">Разработчики</a> |
+                <a href="/contacts">Контакты</a> |
+                <a href="/profile" class="nav-user-link">{{ session.username }}</a> |
+                <a href="/logout">Выйти</a>
+            {% else %}
+                <a href="/developers">Разработчики</a> |
+                <a href="/terms">Соглашение</a> |
+                <a href="/privacy">Персональные данные</a> |
+                <a href="/login">Войти</a>
+            {% endif %}
+        </div>
+    </nav>
+    {% set show_bottom_nav = session.user_id and request.endpoint not in ['login', 'register'] %}
+    <div class="container {% if show_bottom_nav %}with-bottom-nav{% endif %}">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+    {% if show_bottom_nav %}
+    <nav class="mobile-bottom-nav">
+        <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Профиль</span>
+        </a>
+        <a href="{{ url_for('favorites') }}" class="nav-item {% if request.endpoint == 'favorites' %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span>Избранное</span>
+        </a>
+        <a href="{{ url_for('chats_list') }}" class="nav-item {% if request.endpoint in ['chats_list', 'view_chat', 'chat_messages', 'group_settings'] %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+            <span>Чаты</span>
+        </a>
+        <a href="{{ url_for('app_settings') }}" class="nav-item {% if request.endpoint == 'app_settings' %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L5.09 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.04.64.09.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            <span>Настройки</span>
+        </a>
+    </nav>
+    {% endif %}
+</body>
+</html>

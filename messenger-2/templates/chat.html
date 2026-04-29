@@ -7,7 +7,7 @@
         {% for d in dialogs %}
             <a href="/chat/{{ d.id }}" class="dialog-item side-item {% if d.id == chat_id %}active{% endif %}">
                 <div class="dialog-main">
-                    <div class="dialog-name">{{ d.other_username }}</div>
+                    <div class="dialog-name">{% if d.is_group == 1 %}👥 {% endif %}{{ d.display_name }}</div>
                     <div class="dialog-preview">
                         {% if d.last_text %}
                             {{ d.last_text }}
@@ -30,10 +30,24 @@
 
     <div class="chat-window">
         <div class="chat-header">
-            <b>{{ partner_username }}</b>
-            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=chat_id) }}" style="margin-left:auto;">
-                <button type="submit" class="btn-primary btn-auto">{{ "★ Избранное" if is_favorite else "☆ В избранное" }}</button>
+            <b>{{ chat_title }}</b>
+            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=chat_id) }}" style="margin-left: 10px;">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn-primary btn-auto">
+                    {% if is_favorite %}★ В избранном{% else %}☆ В избранное{% endif %}
+                </button>
             </form>
+            {% if is_group %}
+                <div style="margin-top: 8px;">
+                    <a href="{{ url_for('group_settings', chat_id=chat_id) }}" class="btn-primary btn-auto">Настройки группы</a>
+                </div>
+                <div style="margin-top: 8px; color: #ccc; font-size: 14px;">
+                    Участники:
+                    {% for member in group_members %}
+                        {{ member.username }}{% if member.role == 'owner' %} (owner){% elif member.role == 'admin' %} (admin){% endif %}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
 
         <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
