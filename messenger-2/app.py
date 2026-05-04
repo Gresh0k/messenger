@@ -59,8 +59,13 @@ def init_db():
     cur.execute(
         "CREATE TABLE IF NOT EXISTS chat_members (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, user_id INTEGER)")
     chat_member_cols = {row["name"] for row in cur.execute("PRAGMA table_info(chat_members)").fetchall()}
+    if "role" not in chat_member_cols:
+        cur.execute("ALTER TABLE chat_members ADD COLUMN role TEXT DEFAULT 'member'")
+    if "joined_at" not in chat_member_cols:
+        cur.execute("ALTER TABLE chat_members ADD COLUMN joined_at TEXT")
     if "is_favorite" not in chat_member_cols:
         cur.execute("ALTER TABLE chat_members ADD COLUMN is_favorite INTEGER DEFAULT 0")
+    cur.execute("UPDATE chat_members SET role = COALESCE(role, 'member')")
     cur.execute("UPDATE chat_members SET is_favorite = COALESCE(is_favorite, 0)")
     # Таблица сообщений
     cur.execute("""CREATE TABLE IF NOT EXISTS messages (
@@ -136,10 +141,40 @@ def find_private_chat_id(conn, user_a_id, user_b_id):
 
 def create_private_chat(conn, user_a_id, user_b_id):
     cur = conn.cursor()
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("INSERT INTO chats (name, is_group) VALUES (?, 0)", ("private",))
     chat_id = cur.lastrowid
-    cur.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)", (chat_id, user_a_id))
-    cur.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)", (chat_id, user_b_id))
+    cur.execute(
+        "INSERT INTO chat_members (chat_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+        (chat_id, user_a_id, "member", now_ts),
+    )
+    cur.execute(
+        "INSERT INTO chat_members (chat_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+        (chat_id, user_b_id, "member", now_ts),
+    )
+    conn.commit()
+    return chat_id
+
+
+def create_group_chat(conn, creator_id, chat_name, member_ids):
+    unique_member_ids = []
+    seen = set()
+    for user_id in [creator_id, *member_ids]:
+        if user_id in seen:
+            continue
+        seen.add(user_id)
+        unique_member_ids.append(user_id)
+
+    cur = conn.cursor()
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("INSERT INTO chats (name, is_group) VALUES (?, 1)", (chat_name,))
+    chat_id = cur.lastrowid
+    for user_id in unique_member_ids:
+        role = "owner" if user_id == creator_id else "member"
+        cur.execute(
+            "INSERT INTO chat_members (chat_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+            (chat_id, user_id, role, now_ts),
+        )
     conn.commit()
     return chat_id
 
@@ -154,64 +189,40 @@ def get_or_create_private_chat(conn, user_a_id, user_b_id):
 def get_dialog_list(conn, current_user_id):
     return conn.execute(
         """
-        SELECT *
-        FROM (
-            SELECT
-                c.id,
-                c.is_group,
-                u_other.username AS display_name,
-                COALESCE(my_cm.is_favorite, 0) AS is_favorite,
-                m.text AS last_text,
-                m.file_path AS last_file_path,
-                m.file_type AS last_file_type,
-                m.timestamp AS last_timestamp,
-                COALESCE(m.id, 0) AS last_message_id,
-                (
-                    SELECT COUNT(*)
-                    FROM messages mx
-                    WHERE mx.chat_id = c.id
-                      AND mx.sender_id != ?
-                      AND mx.read_at IS NULL
-                ) AS unread_count
-            FROM chats c
-            JOIN chat_members my_cm ON my_cm.chat_id = c.id AND my_cm.user_id = ?
-            JOIN chat_members other_cm ON other_cm.chat_id = c.id AND other_cm.user_id != ?
-            JOIN users u_other ON u_other.id = other_cm.user_id
-            LEFT JOIN messages m ON m.id = (
-                SELECT id FROM messages mx WHERE mx.chat_id = c.id ORDER BY mx.id DESC LIMIT 1
-            )
-            WHERE c.is_group = 0
-              AND (SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id) = 2
-
-            UNION ALL
-
-            SELECT
-                c.id,
-                c.is_group,
-                COALESCE(NULLIF(TRIM(c.name), ''), 'Группа #' || c.id) AS display_name,
-                COALESCE(my_cm.is_favorite, 0) AS is_favorite,
-                m.text AS last_text,
-                m.file_path AS last_file_path,
-                m.file_type AS last_file_type,
-                m.timestamp AS last_timestamp,
-                COALESCE(m.id, 0) AS last_message_id,
-                (
-                    SELECT COUNT(*)
-                    FROM messages mx
-                    WHERE mx.chat_id = c.id
-                      AND mx.sender_id != ?
-                      AND mx.read_at IS NULL
-                ) AS unread_count
-            FROM chats c
-            JOIN chat_members my_cm ON my_cm.chat_id = c.id AND my_cm.user_id = ?
-            LEFT JOIN messages m ON m.id = (
-                SELECT id FROM messages mx WHERE mx.chat_id = c.id ORDER BY mx.id DESC LIMIT 1
-            )
-            WHERE c.is_group = 1
-        ) dialogs
-        ORDER BY dialogs.last_message_id DESC, dialogs.id DESC
+        SELECT
+            c.id,
+            c.is_group,
+            COALESCE(my_cm.is_favorite, 0) AS is_favorite,
+            CASE
+                WHEN c.is_group = 1 THEN COALESCE(NULLIF(c.name, ''), 'Групповой чат')
+                ELSE u_other.username
+            END AS display_name,
+            m.text AS last_text,
+            m.file_path AS last_file_path,
+            m.file_type AS last_file_type,
+            m.timestamp AS last_timestamp,
+            (
+                SELECT COUNT(*) 
+                FROM messages mx 
+                WHERE mx.chat_id = c.id 
+                  AND mx.sender_id != ? 
+                  AND mx.read_at IS NULL
+            ) AS unread_count
+        FROM chats c
+        JOIN chat_members my_cm ON my_cm.chat_id = c.id AND my_cm.user_id = ?
+        LEFT JOIN chat_members other_cm ON other_cm.chat_id = c.id AND other_cm.user_id != ? AND c.is_group = 0
+        LEFT JOIN users u_other ON u_other.id = other_cm.user_id
+        LEFT JOIN messages m ON m.id = (
+            SELECT id FROM messages mx WHERE mx.chat_id = c.id ORDER BY mx.id DESC LIMIT 1
+        )
+        WHERE c.is_group = 1
+           OR (
+                c.is_group = 0
+                AND (SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id) = 2
+           )
+        ORDER BY COALESCE(m.id, 0) DESC, c.id DESC
         """,
-        (current_user_id, current_user_id, current_user_id, current_user_id, current_user_id),
+        (current_user_id, current_user_id, current_user_id),
     ).fetchall()
 
 
@@ -224,7 +235,7 @@ def get_chat_messages(conn, chat_id):
     ).fetchall()
 
 
-def can_access_private_chat(conn, chat_id, current_user_id):
+def can_access_chat(conn, chat_id, current_user_id):
     is_member = conn.execute(
         "SELECT 1 FROM chat_members WHERE chat_id=? AND user_id=?",
         (chat_id, current_user_id),
@@ -232,47 +243,39 @@ def can_access_private_chat(conn, chat_id, current_user_id):
     if not is_member:
         return False
 
-    chat_row = conn.execute("SELECT id, is_group FROM chats WHERE id = ?", (chat_id,)).fetchone()
-    return bool(chat_row and chat_row["is_group"] == 0)
+    chat_row = conn.execute("SELECT id FROM chats WHERE id = ?", (chat_id,)).fetchone()
+    return bool(chat_row)
 
 
-def can_access_chat(conn, chat_id, current_user_id):
-    row = conn.execute(
-        """
-        SELECT c.id, c.is_group, c.name
-        FROM chats c
-        JOIN chat_members cm ON cm.chat_id = c.id
-        WHERE c.id = ? AND cm.user_id = ?
-        """,
-        (chat_id, current_user_id),
-    ).fetchone()
-    return row
-
-
-def create_group_chat(conn, creator_id, group_name, member_ids):
-    unique_members = sorted(set(member_ids + [creator_id]))
-    cur = conn.cursor()
-    cur.execute("INSERT INTO chats (name, is_group) VALUES (?, 1)", (group_name.strip(),))
-    chat_id = cur.lastrowid
-    cur.executemany(
-        "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)",
-        [(chat_id, uid) for uid in unique_members],
-    )
-    conn.commit()
-    return chat_id
+def get_chat_info(conn, chat_id):
+    return conn.execute("SELECT id, name, is_group FROM chats WHERE id = ?", (chat_id,)).fetchone()
 
 
 def get_group_members(conn, chat_id):
     return conn.execute(
         """
-        SELECT u.id AS user_id, u.username
+        SELECT cm.user_id, u.username, COALESCE(cm.role, 'member') AS role, cm.joined_at
         FROM chat_members cm
         JOIN users u ON u.id = cm.user_id
         WHERE cm.chat_id = ?
-        ORDER BY u.username COLLATE NOCASE ASC
+        ORDER BY
+            CASE COALESCE(cm.role, 'member')
+                WHEN 'owner' THEN 0
+                WHEN 'admin' THEN 1
+                ELSE 2
+            END,
+            u.username ASC
         """,
         (chat_id,),
     ).fetchall()
+
+
+def get_member_role(conn, chat_id, user_id):
+    row = conn.execute(
+        "SELECT COALESCE(role, 'member') AS role FROM chat_members WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id),
+    ).fetchone()
+    return row["role"] if row else None
 
 
 def get_chat_favorite_status(conn, chat_id, user_id):
@@ -281,6 +284,28 @@ def get_chat_favorite_status(conn, chat_id, user_id):
         (chat_id, user_id),
     ).fetchone()
     return bool(row and row["is_favorite"] == 1)
+
+
+def ensure_group_owner(conn, chat_id):
+    owners = conn.execute(
+        "SELECT user_id FROM chat_members WHERE chat_id = ? AND COALESCE(role, 'member') = 'owner' LIMIT 1",
+        (chat_id,),
+    ).fetchone()
+    if owners:
+        return
+    first_member = conn.execute(
+        "SELECT user_id FROM chat_members WHERE chat_id = ? ORDER BY user_id ASC LIMIT 1",
+        (chat_id,),
+    ).fetchone()
+    if first_member:
+        conn.execute(
+            "UPDATE chat_members SET role = 'owner' WHERE chat_id = ? AND user_id = ?",
+            (chat_id, first_member["user_id"]),
+        )
+
+
+def is_group_manager(role):
+    return role in {"owner", "admin"}
 
 
 def chat_room(chat_id):
@@ -385,11 +410,6 @@ def privacy():
 @app.route("/developers")
 def developers():
     return render_template("developers.html")
-
-
-@app.route("/gear")
-def gear_page():
-    return render_template("gear.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -596,37 +616,33 @@ def chats_list():
 
     if request.method == "POST":
         action = request.form.get("action", "private")
-
         if action == "create_group":
-            group_name = request.form.get("group_name", "").strip()
-            member_usernames_raw = request.form.get("members", "").strip()
-            member_usernames = [u.strip() for u in member_usernames_raw.split(",") if u.strip()]
-            member_usernames = list(dict.fromkeys(member_usernames))
-            if session["username"] in member_usernames:
-                member_usernames = [u for u in member_usernames if u != session["username"]]
+            chat_name = request.form.get("group_name", "").strip()
+            members_raw = request.form.get("group_members", "")
+            member_usernames = [m.strip() for m in members_raw.split(",") if m.strip()]
 
-            if not group_name:
+            if not chat_name:
                 flash("Введите название группы.")
-            elif len(group_name) < 3:
-                flash("Название группы должно быть не короче 3 символов.")
+            elif not member_usernames:
+                flash("Добавьте хотя бы одного участника через запятую.")
             else:
-                unknown_users = []
-                member_ids = []
-                for username in member_usernames:
-                    user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
-                    if not user:
-                        unknown_users.append(username)
-                    else:
-                        member_ids.append(user["id"])
-
-                if unknown_users:
-                    flash("Не найдены пользователи: " + ", ".join(unknown_users))
-                elif not member_ids:
-                    flash("Добавьте хотя бы одного участника в группу.")
+                placeholders = ",".join("?" for _ in member_usernames)
+                rows = conn.execute(
+                    f"SELECT id, username FROM users WHERE username IN ({placeholders})",
+                    member_usernames,
+                ).fetchall()
+                found_by_name = {row["username"]: row["id"] for row in rows}
+                missing = [name for name in member_usernames if name not in found_by_name]
+                if missing:
+                    flash(f"Не найдены пользователи: {', '.join(missing)}")
                 else:
-                    chat_id = create_group_chat(conn, current_user_id, group_name, member_ids)
-                    conn.close()
-                    return redirect(url_for("view_chat", chat_id=chat_id))
+                    member_ids = [uid for uid in found_by_name.values() if uid != current_user_id]
+                    if not member_ids:
+                        flash("Нельзя создать группу только с собой.")
+                    else:
+                        chat_id = create_group_chat(conn, current_user_id, chat_name, member_ids)
+                        conn.close()
+                        return redirect(url_for("view_chat", chat_id=chat_id))
         else:
             username = request.form.get("username", "").strip()
             target_user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
@@ -644,7 +660,7 @@ def chats_list():
 
     dialogs = get_dialog_list(conn, current_user_id)
     users = conn.execute(
-        "SELECT username FROM users WHERE id != ? ORDER BY username ASC",
+        "SELECT id, username FROM users WHERE id != ? ORDER BY username ASC",
         (current_user_id,),
     ).fetchall()
     conn.close()
@@ -657,14 +673,25 @@ def view_chat(chat_id):
     conn = get_db()
     current_user_id = session["user_id"]
 
-    chat_info = can_access_chat(conn, chat_id, current_user_id)
-    if not chat_info:
+    # Защита: проверяем, что юзер в этом чате
+    if not can_access_chat(conn, chat_id, current_user_id):
         conn.close()
         return "У вас нет доступа к этому чату", 403
 
+    chat_info = get_chat_info(conn, chat_id)
+    if not chat_info:
+        conn.close()
+        return "Чат не найден", 404
+
     chat_title = ""
+    group_members = []
+    current_member_role = None
     if chat_info["is_group"] == 1:
-        chat_title = chat_info["name"] or f"Группа #{chat_id}"
+        ensure_group_owner(conn, chat_id)
+        conn.commit()
+        chat_title = chat_info["name"] or "Групповой чат"
+        group_members = get_group_members(conn, chat_id)
+        current_member_role = get_member_role(conn, chat_id, current_user_id)
     else:
         partner = conn.execute(
             """
@@ -739,111 +766,196 @@ def view_chat(chat_id):
         chat_id=chat_id,
         messages=messages,
         chat_title=chat_title,
-        chat_is_group=bool(chat_info["is_group"] == 1),
         dialogs=dialogs,
+        is_group=chat_info["is_group"] == 1,
+        group_members=group_members,
+        current_member_role=current_member_role,
         is_favorite=is_favorite,
     )
 
 
-@app.route("/chat/<int:chat_id>/participants", methods=["GET", "POST"])
+@app.route("/chat/<int:chat_id>/favorite-toggle", methods=["POST"])
 @login_required
-def chat_participants(chat_id):
+def toggle_chat_favorite(chat_id):
     conn = get_db()
     current_user_id = session["user_id"]
-    chat_info = can_access_chat(conn, chat_id, current_user_id)
-    if not chat_info:
+    if not can_access_chat(conn, chat_id, current_user_id):
         conn.close()
         return "У вас нет доступа к этому чату", 403
-    if chat_info["is_group"] != 1:
+
+    current_state = get_chat_favorite_status(conn, chat_id, current_user_id)
+    next_state = 0 if current_state else 1
+    conn.execute(
+        "UPDATE chat_members SET is_favorite = ? WHERE chat_id = ? AND user_id = ?",
+        (next_state, chat_id, current_user_id),
+    )
+    conn.commit()
+    conn.close()
+    if next_state == 1:
+        flash("Чат добавлен в избранное.")
+    else:
+        flash("Чат удален из избранного.")
+    next_url = request.form.get("next", "").strip()
+    if next_url:
+        return redirect(next_url)
+    return redirect(url_for("view_chat", chat_id=chat_id))
+
+
+@app.route("/chat/<int:chat_id>/settings", methods=["GET", "POST"])
+@login_required
+def group_settings(chat_id):
+    conn = get_db()
+    current_user_id = session["user_id"]
+    if not can_access_chat(conn, chat_id, current_user_id):
         conn.close()
-        return "Список участников доступен только для групп.", 400
+        return "У вас нет доступа к этому чату", 403
+
+    chat_info = get_chat_info(conn, chat_id)
+    if not chat_info or chat_info["is_group"] != 1:
+        conn.close()
+        return "Это не групповой чат", 404
+
+    ensure_group_owner(conn, chat_id)
+    conn.commit()
+    current_role = get_member_role(conn, chat_id, current_user_id)
 
     if request.method == "POST":
         action = request.form.get("action", "").strip()
 
-        if action == "add_member":
+        if action == "rename_group":
+            new_name = request.form.get("group_name", "").strip()
+            if current_role != "owner":
+                flash("Только владелец может менять название группы.")
+            elif not new_name:
+                flash("Введите название группы.")
+            else:
+                conn.execute("UPDATE chats SET name = ? WHERE id = ?", (new_name, chat_id))
+                conn.commit()
+                flash("Название группы обновлено.")
+
+        elif action == "add_member":
             username = request.form.get("username", "").strip()
-            if not username:
+            if not is_group_manager(current_role):
+                flash("Добавлять участников может только владелец или администратор.")
+            elif not username:
                 flash("Введите username пользователя.")
             else:
-                target_user = conn.execute(
-                    "SELECT id, username FROM users WHERE username = ?",
-                    (username,),
-                ).fetchone()
-                if not target_user:
+                user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+                if not user:
                     flash("Пользователь не найден.")
                 else:
-                    already_member = conn.execute(
+                    exists = conn.execute(
                         "SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?",
-                        (chat_id, target_user["id"]),
+                        (chat_id, user["id"]),
                     ).fetchone()
-                    if already_member:
-                        flash("Этот пользователь уже в беседе.")
+                    if exists:
+                        flash("Этот пользователь уже в группе.")
                     else:
                         conn.execute(
-                            "INSERT INTO chat_members (chat_id, user_id, is_favorite) VALUES (?, ?, 0)",
-                            (chat_id, target_user["id"]),
+                            "INSERT INTO chat_members (chat_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+                            (chat_id, user["id"], "member", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                         )
                         conn.commit()
-                        flash(f"Пользователь {target_user['username']} добавлен в беседу.")
+                        flash("Участник добавлен.")
 
         elif action == "remove_member":
-            user_id_raw = request.form.get("user_id", "").strip()
-            try:
-                target_user_id = int(user_id_raw)
-            except ValueError:
-                target_user_id = 0
-
-            if target_user_id <= 0:
-                flash("Некорректный пользователь.")
-            elif target_user_id == current_user_id:
-                flash("Нельзя удалить самого себя. Используйте 'Выйти из беседы'.")
+            if not is_group_manager(current_role):
+                flash("Удалять участников может только владелец или администратор.")
             else:
-                existing_member = conn.execute(
-                    "SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?",
-                    (chat_id, target_user_id),
-                ).fetchone()
-                if not existing_member:
-                    flash("Пользователь уже не состоит в беседе.")
+                try:
+                    target_user_id = int(request.form.get("user_id", "0"))
+                except ValueError:
+                    target_user_id = 0
+                if target_user_id <= 0:
+                    flash("Некорректный участник.")
+                elif target_user_id == current_user_id:
+                    flash("Для себя используйте выход из группы.")
                 else:
-                    conn.execute(
-                        "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?",
+                    target_role = get_member_role(conn, chat_id, target_user_id)
+                    if not target_role:
+                        flash("Участник не найден.")
+                    elif target_role == "owner":
+                        flash("Нельзя удалить владельца группы.")
+                    elif current_role == "admin" and target_role == "admin":
+                        flash("Администратор не может удалить другого администратора.")
+                    else:
+                        conn.execute(
+                            "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?",
+                            (chat_id, target_user_id),
+                        )
+                        conn.commit()
+                        flash("Участник удален.")
+
+        elif action == "change_role":
+            if current_role != "owner":
+                flash("Только владелец может менять роли.")
+            else:
+                try:
+                    target_user_id = int(request.form.get("user_id", "0"))
+                except ValueError:
+                    target_user_id = 0
+                new_role = request.form.get("role", "member")
+                if new_role not in {"owner", "admin", "member"}:
+                    flash("Некорректная роль.")
+                elif target_user_id <= 0:
+                    flash("Некорректный участник.")
+                else:
+                    target_row = conn.execute(
+                        "SELECT user_id, COALESCE(role, 'member') AS role FROM chat_members WHERE chat_id = ? AND user_id = ?",
                         (chat_id, target_user_id),
-                    )
-                    conn.commit()
-                    flash("Пользователь удален из беседы.")
+                    ).fetchone()
+                    if not target_row:
+                        flash("Участник не найден.")
+                    elif target_user_id == current_user_id and new_role != "owner":
+                        flash("Передайте владельца другому участнику и только потом понизьте свою роль.")
+                    elif new_role == "owner":
+                        conn.execute(
+                            "UPDATE chat_members SET role = 'member' WHERE chat_id = ? AND COALESCE(role, 'member') = 'owner'",
+                            (chat_id,),
+                        )
+                        conn.execute(
+                            "UPDATE chat_members SET role = 'owner' WHERE chat_id = ? AND user_id = ?",
+                            (chat_id, target_user_id),
+                        )
+                        conn.commit()
+                        flash("Новый владелец назначен.")
+                    else:
+                        conn.execute(
+                            "UPDATE chat_members SET role = ? WHERE chat_id = ? AND user_id = ?",
+                            (new_role, chat_id, target_user_id),
+                        )
+                        conn.commit()
+                        flash("Роль обновлена.")
 
         elif action == "leave_group":
-            member_count_row = conn.execute(
+            member_count = conn.execute(
                 "SELECT COUNT(*) AS cnt FROM chat_members WHERE chat_id = ?",
                 (chat_id,),
-            ).fetchone()
-            member_count = member_count_row["cnt"] if member_count_row else 0
-            if member_count <= 1:
-                conn.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
-            conn.execute(
-                "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?",
-                (chat_id, current_user_id),
-            )
-            conn.commit()
-            conn.close()
-            flash("Вы вышли из беседы.")
-            return redirect(url_for("chats_list"))
+            ).fetchone()["cnt"]
+            if current_role == "owner" and member_count > 1:
+                flash("Сначала передайте роль владельца другому участнику.")
+            else:
+                conn.execute(
+                    "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?",
+                    (chat_id, current_user_id),
+                )
+                conn.commit()
+                flash("Вы вышли из группы.")
+                conn.close()
+                return redirect(url_for("chats_list"))
 
-        return redirect(url_for("chat_participants", chat_id=chat_id))
+        return redirect(url_for("group_settings", chat_id=chat_id))
 
     members = get_group_members(conn, chat_id)
-    users = conn.execute(
-        "SELECT username FROM users WHERE id != ? ORDER BY username COLLATE NOCASE ASC",
-        (current_user_id,),
-    ).fetchall()
+    users = conn.execute("SELECT username FROM users ORDER BY username ASC").fetchall()
     conn.close()
     return render_template(
         "group_settings.html",
         chat_id=chat_id,
-        group_name=chat_info["name"] or f"Группа #{chat_id}",
+        group_name=chat_info["name"] or "Групповой чат",
         members=members,
         users=users,
+        current_member_role=current_role,
     )
 
 
@@ -898,25 +1010,6 @@ def chat_messages(chat_id):
         )
 
     return jsonify({"messages": payload})
-
-
-@app.route("/chat/<int:chat_id>/favorite-toggle", methods=["POST"])
-@login_required
-def toggle_chat_favorite(chat_id):
-    conn = get_db()
-    current_user_id = session["user_id"]
-    if not can_access_chat(conn, chat_id, current_user_id):
-        conn.close()
-        return "У вас нет доступа к этому чату", 403
-
-    current_state = get_chat_favorite_status(conn, chat_id, current_user_id)
-    conn.execute(
-        "UPDATE chat_members SET is_favorite = ? WHERE chat_id = ? AND user_id = ?",
-        (0 if current_state else 1, chat_id, current_user_id),
-    )
-    conn.commit()
-    conn.close()
-    return redirect(request.form.get("next") or url_for("view_chat", chat_id=chat_id))
 
 
 if socketio:

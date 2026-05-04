@@ -1,23 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="dialogs-card">
-    <h3>Настройки группы: {{ group_name }}</h3>
-    <div style="margin-top: 10px; color: #888;">
-        Ваша роль: <b>{{ current_member_role }}</b>
-    </div>
-
-    {% if current_member_role == 'owner' %}
-    <form method="POST" class="start-dialog-form" style="margin-top:14px;">
-        <input type="hidden" name="action" value="rename_group">
-        <input type="text" name="group_name" placeholder="Новое название группы" required>
-        <button type="submit" class="btn-primary btn-auto">Переименовать</button>
-    </form>
-    {% endif %}
-
-    {% if current_member_role in ['owner', 'admin'] %}
+    <h3>Участники беседы: {{ group_name }}</h3>
     <form method="POST" class="start-dialog-form" style="margin-top:14px;">
         <input type="hidden" name="action" value="add_member">
-        <input type="text" name="username" placeholder="Username нового участника" list="group-users" required>
+        <input type="text" name="username" placeholder="Username нового участника" list="group-users" required autocomplete="off">
         <datalist id="group-users">
             {% for u in users %}
                 <option value="{{ u.username }}"></option>
@@ -25,11 +12,10 @@
         </datalist>
         <button type="submit" class="btn-primary btn-auto">Добавить участника</button>
     </form>
-    {% endif %}
 
     <form method="POST" style="margin-top:14px;">
         <input type="hidden" name="action" value="leave_group">
-        <button type="submit" class="btn-danger">Выйти из группы</button>
+        <button type="submit" class="btn-danger">Выйти из беседы</button>
     </form>
 </div>
 
@@ -38,23 +24,10 @@
 <div class="contact-item">
     <div>
         <div class="dialog-name">{{ member.username }}</div>
-        <div class="dialog-preview">Роль: {{ member.role }}</div>
+        <div class="dialog-preview">{% if member.user_id == session.user_id %}Это вы{% else %}Участник беседы{% endif %}</div>
     </div>
     <div class="contact-actions">
-        {% if current_member_role == 'owner' and member.user_id != session.user_id %}
-        <form method="POST">
-            <input type="hidden" name="action" value="change_role">
-            <input type="hidden" name="user_id" value="{{ member.user_id }}">
-            <select name="role">
-                <option value="member" {% if member.role == 'member' %}selected{% endif %}>member</option>
-                <option value="admin" {% if member.role == 'admin' %}selected{% endif %}>admin</option>
-                <option value="owner" {% if member.role == 'owner' %}selected{% endif %}>owner</option>
-            </select>
-            <button type="submit" class="btn-primary btn-auto">Сменить роль</button>
-        </form>
-        {% endif %}
-
-        {% if current_member_role in ['owner', 'admin'] and member.user_id != session.user_id and member.role != 'owner' %}
+        {% if member.user_id != session.user_id %}
         <form method="POST">
             <input type="hidden" name="action" value="remove_member">
             <input type="hidden" name="user_id" value="{{ member.user_id }}">

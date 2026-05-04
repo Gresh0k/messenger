@@ -31,48 +31,55 @@
     <div class="chat-window">
         <div class="chat-header">
             <b>{{ chat_title }}</b>
-            {% if chat_is_group %}
-                <a href="{{ url_for('chat_participants', chat_id=chat_id) }}" class="btn-primary btn-auto">Участники</a>
-            {% endif %}
-            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=chat_id) }}" style="margin-left:auto;">
-                <button type="submit" class="btn-primary btn-auto">{{ "★ Избранное" if is_favorite else "☆ В избранное" }}</button>
+            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=chat_id) }}" style="margin-left: 10px;">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn-primary btn-auto">
+                    {% if is_favorite %}★ В избранном{% else %}☆ В избранное{% endif %}
+                </button>
             </form>
+            {% if is_group %}
+                <div style="margin-top: 8px;">
+                    <a href="{{ url_for('group_settings', chat_id=chat_id) }}" class="btn-primary btn-auto">Настройки группы</a>
+                </div>
+                <div style="margin-top: 8px; color: #ccc; font-size: 14px;">
+                    Участники:
+                    {% for member in group_members %}
+                        {{ member.username }}{% if member.role == 'owner' %} (owner){% elif member.role == 'admin' %} (admin){% endif %}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
 
-        <div class="chat-content-row">
-            <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
-                {% for m in messages %}
-                    <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
-                        <span class="msg-author">{{ m.sender_name }}</span>
+        <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
+            {% for m in messages %}
+                <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
+                    <span class="msg-author">{{ m.sender_name }}</span>
 
-                        {% if m.text %}
-                            <p>{{ m.text }}</p>
-                        {% endif %}
+                    {% if m.text %}
+                        <p>{{ m.text }}</p>
+                    {% endif %}
 
-                        {% if m.file_path %}
-                            <div class="msg-attachment">
-                                {% if m.file_type == 'image' %}
-                                    <img src="/uploads/{{ m.file_path }}">
-                                {% elif m.file_type == 'video' %}
-                                    <video src="/uploads/{{ m.file_path }}" controls></video>
-                                {% else %}
-                                    <a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>
-                                {% endif %}
-                            </div>
-                        {% endif %}
+                    {% if m.file_path %}
+                        <div class="msg-attachment">
+                            {% if m.file_type == 'image' %}
+                                <img src="/uploads/{{ m.file_path }}">
+                            {% elif m.file_type == 'video' %}
+                                <video src="/uploads/{{ m.file_path }}" controls></video>
+                            {% else %}
+                                <a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
 
-                        <span class="msg-time">{{ m.timestamp }}</span>
+                    <span class="msg-time">{{ m.timestamp }}</span>
 
-                        {% if m.sender_id == session.user_id %}
-                            <span class="msg-status" data-message-id="{{ m.id }}">
-                                {% if m.read_at %}✓✓{% elif m.delivered_at %}✓✓{% else %}✓{% endif %}
-                            </span>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
-            <aside id="emoji-panel" class="emoji-panel-side">
-            </aside>
+                    {% if m.sender_id == session.user_id %}
+                        <span class="msg-status" data-message-id="{{ m.id }}">
+                            {% if m.read_at %}✓✓{% elif m.delivered_at %}✓✓{% else %}✓{% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+            {% endfor %}
         </div>
 
         <!-- ✅ PREVIEW БЛОК -->
@@ -95,7 +102,7 @@
                 +
                 <input type="file" id="file-input" name="file" style="display:none;">
             </label>
-            <input type="text" id="message-input" name="text" placeholder="Сообщение...">
+            <input type="text" name="text" placeholder="Сообщение...">
             <button type="submit" class="btn-primary btn-auto send-btn">Отправить</button>
         </form>
     </div>
@@ -115,51 +122,6 @@ const previewContent = document.getElementById("preview-content");
 const fileName = document.getElementById("file-name");
 const fileSize = document.getElementById("file-size");
 const removeBtn = document.getElementById("remove-file");
-const emojiPanel = document.getElementById("emoji-panel");
-const messageInput = document.getElementById("message-input");
-
-const BASIC_EMOJIS = [
-    "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚",
-    "😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣",
-    "😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗",
-    "🤔","🫣","🤭","🫢","🫡","🤫","🫠","🤥","😶","😶‍🌫️","😐","🫤","😑","😬","🙄","😯","😦","😧","😮","😲",
-    "🥱","😴","🤤","😪","😮‍💨","😵","😵‍💫","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","💀",
-    "☠️","👻","👽","🤖","💩","🙈","🙉","🙊","👋","🤚","🖐️","✋","🖖","🫱","🫲","🫳","🫴","👌","🤌","🤏",
-    "✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌",
-    "🫶","👐","🤲","🙏","✍️","💪","🦾","🦿","🫀","🫁","🧠","🦷","🦴","👀","👁️","👅","👄","❤️","🧡","💛",
-    "💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💯","💢","💥","💫","💦",
-    "💨","🕳️","💣","💬","🗨️","🗯️","💭","🔥","⭐","🌟","✨","⚡","☀️","🌈","☔","❄️","🌊","🍏","🍎","🍐",
-    "🍊","🍋","🍌","🍉","🍇","🍓","🍒","🍑","🍍","🥭","🍅","🥕","🌽","🥔","🍞","🧀","🍗","🍕","🍔","🍟",
-    "🌭","🥪","🌮","🌯","🍜","🍝","🍣","🍩","🍪","🎂","🍫","🍿","☕","🍵","🥤","⚽","🏀","🏈","⚾","🎾",
-    "🎯","🎮","🎲","🎵","🎶","🎤","🎧","🎷","🎸","🎹","🥁","🚗","🚌","🚕","🚓","🚑","🚒","🚲","✈️","🚀",
-    "🛸","⌚","📱","💻","⌨️","🖥️","🖱️","📷","📹","💡","🔋","🔌","🧭","⏰","📌","✂️","🔒","🔑","🧸","🎁",
-    "🏆","🏅","🥇","🥈","🥉","✅","✔️","❌","⭕","❗","❓","➕","➖","➗","➰","➿","♻️","⚠️","🚫","🔔"
-];
-
-function renderEmojiPanel() {
-    if (!emojiPanel) return;
-    const frag = document.createDocumentFragment();
-    BASIC_EMOJIS.forEach((emoji) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = emoji;
-        btn.style.border = "none";
-        btn.style.background = "transparent";
-        btn.style.cursor = "pointer";
-        btn.style.fontSize = "20px";
-        btn.style.padding = "4px";
-        btn.title = emoji;
-        btn.addEventListener("click", () => {
-            if (!messageInput) return;
-            messageInput.value += emoji;
-            messageInput.focus();
-        });
-        frag.appendChild(btn);
-    });
-    emojiPanel.appendChild(frag);
-}
-
-renderEmojiPanel();
 
 function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + " B";
