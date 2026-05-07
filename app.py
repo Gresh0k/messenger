@@ -4,6 +4,7 @@ import os
 import sqlite3
 import bcrypt
 import re
+import secrets
 from werkzeug.utils import secure_filename
 from functools import wraps
 try:
@@ -59,6 +60,10 @@ def init_db():
         cur.execute("ALTER TABLE users ADD COLUMN privacy_accepted_at TEXT")
     # Таблица чатов
     cur.execute("CREATE TABLE IF NOT EXISTS chats (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, is_group INTEGER)")
+    chat_cols = {row["name"] for row in cur.execute("PRAGMA table_info(chats)").fetchall()}
+    if "invite_code" not in chat_cols:
+        cur.execute("ALTER TABLE chats ADD COLUMN invite_code TEXT")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_chats_invite_code ON chats(invite_code)")
     # Таблица участников чатов
     cur.execute(
         "CREATE TABLE IF NOT EXISTS chat_members (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, user_id INTEGER)")
@@ -243,7 +248,7 @@ def can_access_private_chat(conn, chat_id, current_user_id):
 def can_access_chat(conn, chat_id, current_user_id):
     row = conn.execute(
         """
-        SELECT c.id, c.is_group, c.name
+        SELECT c.id, c.is_group, c.name, c.invite_code
         FROM chats c
         JOIN chat_members cm ON cm.chat_id = c.id
         WHERE c.id = ? AND cm.user_id = ?
@@ -253,15 +258,23 @@ def can_access_chat(conn, chat_id, current_user_id):
     return row
 
 
-def create_group_chat(conn, creator_id, group_name, member_ids):
-    unique_members = sorted(set(member_ids + [creator_id]))
+def generate_group_invite_code(conn):
+    while True:
+        code = secrets.token_urlsafe(8)
+        exists = conn.execute("SELECT 1 FROM chats WHERE invite_code = ?", (code,)).fetchone()
+        if not exists:
+            return code
+
+
+def create_group_chat(conn, creator_id, group_name):
+    invite_code = generate_group_invite_code(conn)
     cur = conn.cursor()
-    cur.execute("INSERT INTO chats (name, is_group) VALUES (?, 1)", (group_name.strip(),))
-    chat_id = cur.lastrowid
-    cur.executemany(
-        "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)",
-        [(chat_id, uid) for uid in unique_members],
+    cur.execute(
+        "INSERT INTO chats (name, is_group, invite_code) VALUES (?, 1, ?)",
+        (group_name.strip(), invite_code),
     )
+    chat_id = cur.lastrowid
+    cur.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)", (chat_id, creator_id))
     conn.commit()
     return chat_id
 
@@ -630,34 +643,16 @@ def chats_list():
 
         if action == "create_group":
             group_name = request.form.get("group_name", "").strip()
-            member_usernames_raw = request.form.get("members", "").strip()
-            member_usernames = [u.strip() for u in member_usernames_raw.split(",") if u.strip()]
-            member_usernames = list(dict.fromkeys(member_usernames))
-            if session["username"] in member_usernames:
-                member_usernames = [u for u in member_usernames if u != session["username"]]
 
             if not group_name:
                 flash("Введите название группы.")
             elif len(group_name) < 3:
                 flash("Название группы должно быть не короче 3 символов.")
             else:
-                unknown_users = []
-                member_ids = []
-                for username in member_usernames:
-                    user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
-                    if not user:
-                        unknown_users.append(username)
-                    else:
-                        member_ids.append(user["id"])
-
-                if unknown_users:
-                    flash("Не найдены пользователи: " + ", ".join(unknown_users))
-                elif not member_ids:
-                    flash("Добавьте хотя бы одного участника в группу.")
-                else:
-                    chat_id = create_group_chat(conn, current_user_id, group_name, member_ids)
-                    conn.close()
-                    return redirect(url_for("view_chat", chat_id=chat_id))
+                chat_id = create_group_chat(conn, current_user_id, group_name)
+                conn.close()
+                flash("Группа создана. Ссылку-приглашение можно найти в разделе 'Участники'.")
+                return redirect(url_for("view_chat", chat_id=chat_id))
         else:
             username = request.form.get("username", "").strip()
             target_user = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
@@ -868,6 +863,7 @@ def chat_participants(chat_id):
         "SELECT username FROM users WHERE id != ? ORDER BY username COLLATE NOCASE ASC",
         (current_user_id,),
     ).fetchall()
+    invite_link = url_for("join_group_by_link", invite_code=chat_info["invite_code"], _external=True)
     conn.close()
     return render_template(
         "group_settings.html",
@@ -875,7 +871,39 @@ def chat_participants(chat_id):
         group_name=chat_info["name"] or f"Группа #{chat_id}",
         members=members,
         users=users,
+        invite_link=invite_link,
     )
+
+
+@app.route("/join-group/<invite_code>")
+@login_required
+def join_group_by_link(invite_code):
+    conn = get_db()
+    current_user_id = session["user_id"]
+    chat = conn.execute(
+        "SELECT id, is_group FROM chats WHERE invite_code = ?",
+        (invite_code,),
+    ).fetchone()
+    if not chat or chat["is_group"] != 1:
+        conn.close()
+        flash("Ссылка приглашения недействительна.")
+        return redirect(url_for("chats_list"))
+
+    is_member = conn.execute(
+        "SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?",
+        (chat["id"], current_user_id),
+    ).fetchone()
+    if not is_member:
+        conn.execute(
+            "INSERT INTO chat_members (chat_id, user_id, is_favorite) VALUES (?, ?, 0)",
+            (chat["id"], current_user_id),
+        )
+        conn.commit()
+        flash("Вы вступили в группу.")
+    else:
+        flash("Вы уже состоите в этой группе.")
+    conn.close()
+    return redirect(url_for("view_chat", chat_id=chat["id"]))
 
 
 @app.route("/chat/<int:chat_id>/messages")
