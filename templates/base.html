@@ -4,7 +4,7 @@
     <title>Keepy</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="page-transition page-preload">
     <nav class="navbar">
         <a href="/" class="brand">
             <img
@@ -18,18 +18,13 @@
         <div class="nav-links">
             {% if session.user_id %}
                 <div class="nav-actions">
-                    <a href="/favorites" class="nav-btn nav-btn-ghost">Избранное</a>
-                    <a href="/settings" class="nav-btn nav-btn-ghost">Настройки</a>
                     <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
                     <a href="/contacts" class="nav-btn nav-btn-ghost">Контакты</a>
-                    <a href="/profile" class="nav-btn nav-btn-ghost nav-user-link">{{ session.username }}</a>
                     <a href="/logout" class="nav-btn nav-btn-primary">Выйти</a>
                 </div>
             {% else %}
                 <div class="nav-actions">
                     <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
-                    <a href="/terms" class="nav-btn nav-btn-ghost">Соглашение</a>
-                    <a href="/privacy" class="nav-btn nav-btn-ghost">Персональные данные</a>
                     <a href="/login" class="nav-btn nav-btn-primary">Войти</a>
                 </div>
             {% endif %}
@@ -74,5 +69,46 @@
         </a>
     </nav>
     {% endif %}
+    <script>
+        (function () {
+            const TRANSITION_MS = 180;
+            let isLeaving = false;
+
+            function isInternalLink(anchor) {
+                if (!anchor || !anchor.href) return false;
+                if (anchor.target && anchor.target !== "_self") return false;
+                if (anchor.hasAttribute("download")) return false;
+                if (anchor.getAttribute("rel") === "external") return false;
+                if (anchor.getAttribute("href").startsWith("#")) return false;
+                return anchor.origin === window.location.origin;
+            }
+
+            function startLeaveTransition(nextUrl) {
+                if (isLeaving) return;
+                isLeaving = true;
+                document.body.classList.add("page-leave");
+                window.setTimeout(() => {
+                    window.location.href = nextUrl;
+                }, TRANSITION_MS);
+            }
+
+            window.addEventListener("pageshow", () => {
+                document.body.classList.remove("page-preload");
+            });
+
+            document.addEventListener("click", (event) => {
+                if (event.defaultPrevented) return;
+                if (event.button !== 0) return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+                const anchor = event.target.closest("a");
+                if (!isInternalLink(anchor)) return;
+                if (anchor.href === window.location.href) return;
+
+                event.preventDefault();
+                startLeaveTransition(anchor.href);
+            });
+        })();
+    </script>
 </body>
 </html>

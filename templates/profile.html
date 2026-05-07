@@ -1,9 +1,5 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keepy - Ваш профиль</title>
+{% extends "base.html" %}
+{% block content %}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -21,32 +17,6 @@
             flex-direction: column;
         }
 
-        /* Header */
-        .app-header {
-            background: #2c2c2c;
-            height: 65px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            position: relative;
-        }
-        .header-left { display: flex; align-items: center; gap: 12px; }
-        .header-logo {
-            width: 40px; height: 40px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 20px;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        }
-        .header-title { font-size: 22px; font-weight: 600; color: #fff; }
-        .header-center {
-            position: absolute; left: 50%; transform: translateX(-50%);
-            font-size: 18px; font-weight: 500; color: #e0e0e0;
-        }
-
         /* Main Content */
         .main-content {
             flex: 1;
@@ -54,6 +24,7 @@
             max-width: 800px;
             margin: 0 auto;
             width: 100%;
+            zoom: 1.12;
         }
 
         /* Profile Top */
@@ -436,42 +407,15 @@
         }
         .close-viewer:hover { color: #667eea; }
 
-        /* Bottom Nav */
-        .bottom-nav {
-            background: #2c2c2c; height: 65px; display: flex;
-            justify-content: space-around; align-items: center;
-            border-top: 1px solid rgba(255,255,255,0.05); position: fixed; bottom: 0; width: 100%; z-index: 80;
-        }
-        .nav-item {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #666; text-decoration: none; font-size: 12px; gap: 4px;
-            width: 25%; height: 100%; transition: 0.2s;
-        }
-        .nav-item:hover, .nav-item.active { color: #a5b4fc; }
-        .nav-icon { width: 24px; height: 24px; fill: currentColor; }
-
         @media (max-width: 600px) {
             .profile-top { flex-direction: column; align-items: center; text-align: center; }
             .name-section { align-items: center; padding-top: 0; }
-            .header-center { display: none; }
             .modal-content { padding: 25px 20px; }
             .carousel-container { max-height: 220px; }
             .carousel-slide .slide-initials { font-size: 60px; }
             .carousel-actions { gap: 16px; }
         }
     </style>
-</head>
-<body>
-
-    <header class="app-header">
-        <div class="header-left">
-            <div class="header-logo">K</div>
-            <span class="header-title">Keepy</span>
-        </div>
-        <div class="header-center">Ваш профиль</div>
-        <div style="width: 80px;"></div>
-    </header>
-
     <main class="main-content">
         <div class="profile-top">
             <div class="avatar-section">
@@ -589,38 +533,6 @@
             <button class="viewer-btn" onclick="changePhoto(1)">Вперёд →</button>
         </div>
     </div>
-
-    <nav class="bottom-nav">
-        <a href="{{ url_for('profile') }}" class="nav-item active">
-            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-            <span>Профиль</span>
-        </a>
-        <a href="{{ url_for('favorites') }}" class="nav-item">
-            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-            <span>Избранное</span>
-        </a>
-        <a href="{{ url_for('chats_list') }}" class="nav-item">
-            <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-            <span>Чаты</span>
-        </a>
-        <a href="{{ url_for('app_settings') }}" class="nav-item">
-            <svg class="nav-icon" viewBox="0 0 512 512" aria-hidden="true">
-                <g fill="currentColor" transform="translate(256 256)">
-                    <rect x="-26" y="-242" width="52" height="86" rx="12"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(45)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(90)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(135)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(180)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(225)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(270)"/>
-                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(315)"/>
-                    <circle r="166"/>
-                    <circle r="74" fill="#2c2c2c"/>
-                </g>
-            </svg>
-            <span>Настройки</span>
-        </a>
-    </nav>
 
     <script>
         let userData = {
@@ -945,5 +857,4 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}

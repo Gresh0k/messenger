@@ -9,9 +9,10 @@ body {
     background-attachment: fixed;
     color: #1c1e21;
     line-height: 1.6;
+    scroll-behavior: smooth;
 }
 body { padding-bottom: 78px; }
-a { text-decoration: none; color: #0084ff; transition: 0.2s; }
+a { text-decoration: none; color: #0084ff; transition: color .25s ease, opacity .25s ease, transform .25s ease; }
 a:hover { color: #0056b3; }
 
 /* НАВИГАЦИЯ */
@@ -337,6 +338,79 @@ a:hover { color: #0056b3; }
 .bottom-nav-item:hover,
 .bottom-nav-item.active {
     color: #8ab4ff;
+}
+
+/* Плавные переходы интерфейса */
+.btn-primary,
+.btn-danger,
+.nav-btn,
+.dialog-item,
+.side-item,
+.contact-item,
+.developer-item,
+.message,
+.chat-sidebar,
+.chat-window,
+.chat-header,
+.chat-input-area,
+.emoji-panel-side,
+.chat-input-area input[type="text"],
+.start-dialog-form input[type="text"],
+.input-group input {
+    transition:
+        background-color .25s ease,
+        border-color .25s ease,
+        color .25s ease,
+        box-shadow .25s ease,
+        transform .2s ease,
+        opacity .25s ease;
+}
+
+.chat-input-area input[type="text"]:focus,
+.start-dialog-form input[type="text"]:focus,
+.input-group input:focus {
+    transform: translateY(-1px);
+}
+
+.message:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.emoji-panel-side button {
+    transition: transform .12s ease, filter .2s ease, background-color .2s ease;
+    border-radius: 8px;
+}
+
+.emoji-panel-side button:hover {
+    transform: scale(1.08);
+    filter: brightness(1.08);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Переходы между страницами */
+body.page-transition {
+    opacity: 1;
+    transition: opacity .18s ease;
+}
+
+body.page-transition.page-preload {
+    opacity: 0;
+}
+
+body.page-transition.page-leave {
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* ===== DARK TONE OVERRIDES ===== */
