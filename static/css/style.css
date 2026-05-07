@@ -125,7 +125,58 @@ a:hover { color: #0056b3; }
 .btn-danger:hover { background: #dc2626; }
 
 /* УВЕДОМЛЕНИЯ */
-.flash { background: #fee; color: #c00; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 1px solid #fcc; }
+.flash-stack {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(92vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 2200;
+    pointer-events: none;
+}
+
+.flash {
+    background: #fee;
+    color: #c00;
+    padding: 12px 15px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1px solid #fcc;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26);
+    opacity: 0;
+    transform: translateY(-12px);
+    animation: toast-in .25s ease forwards;
+    pointer-events: auto;
+}
+
+.flash.hide {
+    animation: toast-out .25s ease forwards;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toast-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
 
 /* ЧАТ: ОКНО */
 .chat-layout { display: flex; gap: 0; height: 80vh; background: #fff; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }

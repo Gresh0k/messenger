@@ -49,6 +49,10 @@ def init_db():
         cur.execute("ALTER TABLE users ADD COLUMN email TEXT")
     if "birth_date" not in existing_cols:
         cur.execute("ALTER TABLE users ADD COLUMN birth_date TEXT")
+    if "first_name" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
+    if "last_name" not in existing_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN last_name TEXT")
     if "agreement_accepted_at" not in existing_cols:
         cur.execute("ALTER TABLE users ADD COLUMN agreement_accepted_at TEXT")
     if "privacy_accepted_at" not in existing_cols:
@@ -109,8 +113,8 @@ def validate_username(username):
     reserved = {"admin", "root", "support", "system", "keepy"}
     if lowered in reserved:
         return "Этот логин зарезервирован."
-    if not re.match(r'^[a-zA-Z0-9_]{4,10}$', username):
-        return "Логин должен быть от 4 до 10 символов (латиница, цифры и '_')."
+    if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
+        return "Логин должен быть от 3 до 20 символов (латиница, цифры и '_')."
     if username.startswith("_") or username.endswith("_") or "__" in username:
         return "Логин не должен начинаться/заканчиваться '_' или содержать '__'."
     if username.isdigit():
@@ -464,9 +468,22 @@ def profile():
     current_user_id = session["user_id"]
 
     if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
         phone = request.form.get("phone", "").strip()
         email = request.form.get("email", "").strip()
         birth_date = request.form.get("birth_date", "").strip()
+
+        if not username:
+            flash("Логин не может быть пустым.")
+            conn.close()
+            return redirect(url_for("profile"))
+        username_error = validate_username(username)
+        if username_error:
+            flash(username_error)
+            conn.close()
+            return redirect(url_for("profile"))
 
         if phone and not re.match(r'^\+?[0-9\-\s\(\)]{7,20}$', phone):
             flash("Неверный формат телефона.")
@@ -475,17 +492,31 @@ def profile():
         elif birth_date and not re.match(r'^\d{4}-\d{2}-\d{2}$', birth_date):
             flash("Неверный формат даты рождения.")
         else:
-            conn.execute(
-                "UPDATE users SET phone = ?, email = ?, birth_date = ? WHERE id = ?",
-                (phone or None, email or None, birth_date or None, current_user_id),
-            )
-            conn.commit()
-            flash("Профиль обновлен.")
-            conn.close()
-            return redirect(url_for("profile"))
+            try:
+                conn.execute(
+                    """UPDATE users
+                       SET username = ?, first_name = ?, last_name = ?, phone = ?, email = ?, birth_date = ?
+                       WHERE id = ?""",
+                    (
+                        username,
+                        first_name or None,
+                        last_name or None,
+                        phone or None,
+                        email or None,
+                        birth_date or None,
+                        current_user_id,
+                    ),
+                )
+                conn.commit()
+                session["username"] = username
+                flash("Профиль обновлен.")
+                conn.close()
+                return redirect(url_for("profile"))
+            except sqlite3.IntegrityError:
+                flash("Этот логин уже занят.")
 
     user = conn.execute(
-        "SELECT username, phone, email, birth_date FROM users WHERE id = ?",
+        "SELECT username, first_name, last_name, phone, email, birth_date FROM users WHERE id = ?",
         (current_user_id,),
     ).fetchone()
     conn.close()

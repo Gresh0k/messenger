@@ -536,16 +536,17 @@
 
     <script>
         let userData = {
-            firstName: 'Имя',
-            lastName: 'Фамилия',
+            firstName: {{ (user["first_name"] or "")|tojson }},
+            lastName: {{ (user["last_name"] or "")|tojson }},
             about: '',
-            phone: '+7 800-555-35-35',
-            username: '@gasvs',
-            email: 'sdfsdf@mail.ru',
-            birthday: '2007-05-10',
+            phone: {{ (user["phone"] or "")|tojson }},
+            username: {{ (user["username"] or "")|tojson }},
+            email: {{ (user["email"] or "")|tojson }},
+            birthday: {{ (user["birth_date"] or "")|tojson }},
             avatar: null,
             photos: []
         };
+        const profileStorageKey = `keepy_profile_data_${userData.username || 'guest'}`;
 
         let allViewablePhotos = [];
         let currentPhotoIndex = 0;
@@ -561,21 +562,32 @@
 
         function loadFromStorage() {
             try {
-                const saved = localStorage.getItem('keepy_profile_data');
+                const saved = localStorage.getItem(profileStorageKey);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    userData = { ...userData, ...parsed };
+                    userData = {
+                        ...userData,
+                        about: parsed.about || '',
+                        avatar: parsed.avatar || null,
+                        photos: Array.isArray(parsed.photos) ? parsed.photos : []
+                    };
                 }
             } catch (e) { console.warn('Failed to load profile'); }
         }
 
         function saveToStorage() {
-            try { localStorage.setItem('keepy_profile_data', JSON.stringify(userData)); }
+            const toStore = {
+                about: userData.about || '',
+                avatar: userData.avatar || null,
+                photos: Array.isArray(userData.photos) ? userData.photos : []
+            };
+            try { localStorage.setItem(profileStorageKey, JSON.stringify(toStore)); }
             catch (e) { alert('Не удалось сохранить. Изображения слишком большие.'); }
         }
 
         function renderProfile() {
-            const initials = userData.firstName.charAt(0).toUpperCase();
+            const initialsSource = (userData.firstName || userData.username || "K");
+            const initials = initialsSource.charAt(0).toUpperCase();
             document.getElementById('avatarInitials').textContent = initials;
 
             const avatarEl = document.getElementById('mainAvatar');
@@ -587,7 +599,8 @@
                 avatarEl.classList.remove('has-img');
             }
 
-            document.getElementById('displayName').textContent = `${userData.firstName} ${userData.lastName}`;
+            const profileDisplayName = `${userData.firstName} ${userData.lastName}`.trim() || userData.username || "Пользователь";
+            document.getElementById('displayName').textContent = profileDisplayName;
             document.getElementById('displayPhone').textContent = userData.phone || 'Не указан';
             document.getElementById('displayUsername').textContent = userData.username || 'Не указан';
             document.getElementById('displayEmail').textContent = userData.email || 'Не указан';
@@ -797,8 +810,8 @@
         }
 
         function saveProfile() {
-            userData.firstName = document.getElementById('editFirstName').value.trim() || 'Имя';
-            userData.lastName = document.getElementById('editLastName').value.trim() || 'Фамилия';
+            userData.firstName = document.getElementById('editFirstName').value.trim();
+            userData.lastName = document.getElementById('editLastName').value.trim();
             userData.about = document.getElementById('editAbout').value.trim();
             userData.phone = document.getElementById('editPhone').value.trim();
             userData.username = document.getElementById('editUsername').value.trim();
@@ -806,8 +819,29 @@
             userData.birthday = document.getElementById('editBirthday').value;
 
             saveToStorage();
-            renderProfile();
-            closeEditModal();
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("profile") }}';
+
+            const fields = {
+                username: userData.username,
+                first_name: userData.firstName,
+                last_name: userData.lastName,
+                phone: userData.phone,
+                email: userData.email,
+                birth_date: userData.birthday
+            };
+
+            Object.entries(fields).forEach(([name, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value || '';
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // Photo Viewer
