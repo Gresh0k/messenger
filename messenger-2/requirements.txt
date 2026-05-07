@@ -1,4 +1,0 @@
-Flask
-Werkzeug
-bcrypt
-Flask-SocketIO
