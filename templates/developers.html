@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="developers-card">
+    <h1>Команда разработки</h1>
+    <p class="developers-subtitle">Контакты участников проекта и распределение задач.</p>
+
+    <div class="developer-list">
+        <!-- Петров Алексей: Главный, Дизайн + Архитектура -->
+        <article class="developer-item lead-developer">
+            <h3>Петров Алексей</h3>
+            <p><b>Роль:</b> Lead Developer / UI/UX Архитектор</p>
+            <p><b>Отвечал за:</b> общее руководство проектом, проектирование дизайна интерфейса мессенджера и архитектуру страниц.</p>
+            <p><b>Контакты:</b> <a href="https://mail.google.com/mail/?view=cm&fs=1&to=petrov@gmail.com" target="_blank" rel="noopener noreferrer">petrov@gmail.com</a></p>
+        </article>
+
+        <!-- Игнатьев Максим: Backend/Frontend Logic -->
+        <article class="developer-item">
+            <h3>Игнатьев Максим</h3>
+            <p><b>Роль:</b> Core Developer</p>
+            <p><b>Отвечал за:</b> написание программного кода, реализацию основной логики и функционала приложения.</p>
+            <p><b>Контакты:</b> <a href="https://mail.google.com/mail/?view=cm&fs=1&to=ignatyev@gmail.com" target="_blank" rel="noopener noreferrer">ignatyev@gmail.com</a></p>
+        </article>
+
+        <!-- Киселёв Николай: Backend/Frontend Logic -->
+        <article class="developer-item">
+            <h3>Киселёв Николай</h3>
+            <p><b>Роль:</b> Core Developer</p>
+            <p><b>Отвечал за:</b> разработку кода для рабочих функций, интеграцию модулей и отладку алгоритмов.</p>
+            <p><b>Контакты:</b> <a href="https://mail.google.com/mail/?view=cm&fs=1&to=kiselev@gmail.com" target="_blank" rel="noopener noreferrer">kiselev@gmail.com</a></p>
+        </article>
+
+        <!-- Абрамян Тимур: Integration (Связка дизайна и кода) -->
+        <article class="developer-item">
+            <h3>Абрамян Тимур</h3>
+            <p><b>Роль:</b> Frontend Integrator</p>
+            <p><b>Отвечал за:</b> связку визуального дизайна с программным кодом, привязку функций к элементам интерфейса (кнопкам, формам).</p>
+            <p><b>Контакты:</b> <a href="https://mail.google.com/mail/?view=cm&fs=1&to=abramyan@gmail.com" target="_blank" rel="noopener noreferrer">abramyan@gmail.com</a></p>
+        </article>
+
+        <!-- Годовалова Анжелика: Visual Design (Кнопки, цвета, фон) -->
+        <article class="developer-item">
+            <h3>Годовалова Анжелика</h3>
+            <p><b>Роль:</b> Visual Designer</p>
+            <p><b>Отвечала за:</b> детализированный дизайн интерфейса: оформление кнопок, подбор цветовой палитры, фонов и общих визуальных решений.</p>
+            <p><b>Контакты:</b> <a href="https://mail.google.com/mail/?view=cm&fs=1&to=godovalova@gmail.com" target="_blank" rel="noopener noreferrer">godovalova@gmail.com</a></p>
+        </article>
+    </div>
+
+    <section class="developers-repo-section" aria-labelledby="developers-github-heading">
+        <h2 id="developers-github-heading" class="developers-repo-title">Исходный код</h2>
+        <p class="developers-repo-desc">Репозиторий проекта на GitHub (ветка v2):</p>
+        <p class="developers-github-link-wrap">
+            <a href="https://github.com/Gresh0k/messenger/tree/v2" target="_blank" rel="noopener noreferrer">https://github.com/Gresh0k/messenger/tree/v2</a>
+        </p>
+
+        <h3 class="developers-promo-heading">Продвижение проекта</h3>
+        <p class="developers-promo-desc">Скриншоты материалов, которыми мы рассказывали о мессенджере:</p>
+        <div class="developers-promo-gallery">
+            {% for shot in promo_screenshots %}
+            <figure class="developers-promo-figure">
+                <button type="button" class="developers-promo-open" data-promo-index="{{ loop.index0 }}" aria-haspopup="dialog" aria-label="Открыть скриншот {{ loop.index }} в полном размере">
+                    <img src="{{ url_for('static', filename='images/' ~ shot) }}" alt="Реклама мессенджера Keepy, скриншот {{ loop.index }}" loading="lazy">
+                </button>
+            </figure>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<div id="promo-lightbox" class="promo-lightbox" hidden role="dialog" aria-modal="true" aria-label="Галерея скриншотов продвижения">
+    <div class="promo-lightbox-dialog">
+        <button type="button" class="promo-lightbox-close" aria-label="Закрыть">&times;</button>
+        <button type="button" class="promo-lightbox-prev" aria-label="Предыдущее изображение">&#10094;</button>
+        <button type="button" class="promo-lightbox-next" aria-label="Следующее изображение">&#10095;</button>
+        <img class="promo-lightbox-img" src="" alt="">
+        <p class="promo-lightbox-counter" aria-live="polite"></p>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script type="application/json" id="promo-gallery-data">{{ promo_gallery_urls | tojson }}</script>
+<script>
+(function () {
+    const dataEl = document.getElementById("promo-gallery-data");
+    const lightbox = document.getElementById("promo-lightbox");
+    if (!dataEl || !lightbox) return;
+
+    let urls;
+    try {
+        urls = JSON.parse(dataEl.textContent || "[]");
+    } catch (e) {
+        return;
+    }
+    if (!urls.length) return;
+
+    const dialog = lightbox.querySelector(".promo-lightbox-dialog");
+    const img = lightbox.querySelector(".promo-lightbox-img");
+    const counter = lightbox.querySelector(".promo-lightbox-counter");
+    const btnPrev = lightbox.querySelector(".promo-lightbox-prev");
+    const btnNext = lightbox.querySelector(".promo-lightbox-next");
+    const btnClose = lightbox.querySelector(".promo-lightbox-close");
+
+    let index = 0;
+
+    function render() {
+        index = ((index % urls.length) + urls.length) % urls.length;
+        img.src = urls[index];
+        img.alt = "Реклама мессенджера Keepy, скриншот " + (index + 1) + " из " + urls.length;
+        counter.textContent = (index + 1) + " / " + urls.length;
+        const multi = urls.length > 1;
+        btnPrev.hidden = !multi;
+        btnNext.hidden = !multi;
+    }
+
+    function onDocKeydown(e) {
+        if (e.key === "Escape") {
+            close();
+            return;
+        }
+        if (urls.length <= 1) return;
+        if (e.key === "ArrowLeft") {
+            index -= 1;
+            render();
+        } else if (e.key === "ArrowRight") {
+            index += 1;
+            render();
+        }
+    }
+
+    function open(at) {
+        index = typeof at === "number" ? at : 0;
+        render();
+        lightbox.hidden = false;
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", onDocKeydown);
+        btnClose.focus();
+    }
+
+    function close() {
+        lightbox.hidden = true;
+        document.body.style.overflow = "";
+        document.removeEventListener("keydown", onDocKeydown);
+        img.removeAttribute("src");
+    }
+
+    document.querySelectorAll(".developers-promo-open").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var i = parseInt(btn.getAttribute("data-promo-index"), 10);
+            open(isNaN(i) ? 0 : i);
+        });
+    });
+
+    lightbox.addEventListener("click", function (e) {
+        if (e.target === lightbox) close();
+    });
+    if (dialog) {
+        dialog.addEventListener("click", function (e) {
+            e.stopPropagation();
+        });
+    }
+    btnClose.addEventListener("click", close);
+    btnPrev.addEventListener("click", function () {
+        index -= 1;
+        render();
+    });
+    btnNext.addEventListener("click", function () {
+        index += 1;
+        render();
+    });
+})();
+</script>
+{% endblock %}

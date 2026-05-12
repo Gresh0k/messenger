@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dialogs-card">
+    <h3>Настройки</h3>
+    <p style="margin-top: 12px; color: #777;">
+        Раздел настроек создан. Здесь можно разместить параметры приложения.
+    </p>
+</div>
+
+<div class="contact-item">
+    <div>
+        <div class="dialog-name">Профиль</div>
+        <div class="dialog-preview">Редактирование личных данных</div>
+    </div>
+    <div class="contact-actions">
+        <a href="{{ url_for('profile') }}" class="btn-primary btn-auto">Открыть</a>
+    </div>
+</div>
+
+<div class="contact-item">
+    <div>
+        <div class="dialog-name">Чаты</div>
+        <div class="dialog-preview">Список ваших диалогов и групп</div>
+    </div>
+    <div class="contact-actions">
+        <a href="{{ url_for('chats_list') }}" class="btn-primary btn-auto">Открыть</a>
+    </div>
+</div>
+{% endblock %}

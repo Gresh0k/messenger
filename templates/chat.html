@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="chat-layout">
     <aside class="chat-sidebar">
         <div class="chat-sidebar-title">Диалоги</div>
         {% for d in dialogs %}
             <a href="/chat/{{ d.id }}" class="dialog-item side-item {% if d.id == chat_id %}active{% endif %}">
                 <div class="dialog-main">
-                    <div class="dialog-name">{{ d.other_username }}</div>
+                    <div class="dialog-name">{% if d.is_group == 1 %}👥 {% endif %}{{ d.display_name }}</div>
                     <div class="dialog-preview">
                         {% if d.last_text %}
                             {{ d.last_text }}
@@ -29,149 +30,237 @@
 
     <div class="chat-window">
         <div class="chat-header">
-            <b>{{ partner_username }}</b>
+            <b>{{ chat_title }}</b>
+            {% if chat_is_group %}
+                <a href="{{ url_for('chat_participants', chat_id=chat_id) }}" class="btn-primary btn-auto">Участники</a>
+            {% endif %}
+            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=chat_id) }}" style="margin-left:auto;">
+                <button type="submit" class="btn-primary btn-auto">{{ "★ Избранное" if is_favorite else "☆ В избранное" }}</button>
+            </form>
         </div>
-        <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
-            {% for m in messages %}
-                <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
-                    <span class="msg-author">{{ m.sender_name }}</span>
-                    {% if m.text %}<p>{{ m.text }}</p>{% endif %}
-                    {% if m.file_path %}
-                        <div class="msg-attachment">
-                            {% if m.file_type == 'image' %}<img src="/uploads/{{ m.file_path }}">
-                            {% elif m.file_type == 'video' %}<video src="/uploads/{{ m.file_path }}" controls></video>
-                            {% else %}<a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>{% endif %}
-                        </div>
-                    {% endif %}
-                    <span class="msg-time">{{ m.timestamp }}</span>
-                {% if m.sender_id == session.user_id %}
-                    <span class="msg-status" data-message-id="{{ m.id }}">
-                        {% if m.read_at %}✓✓{% elif m.delivered_at %}✓✓{% else %}✓{% endif %}
-                    </span>
-                {% endif %}
+
+        <div class="chat-content-row">
+            <div class="chat-messages" id="chat-box" data-last-id="{{ messages[-1].id if messages else 0 }}">
+                {% for m in messages %}
+                    <div class="message {% if m.sender_id == session.user_id %}my-message{% else %}other-message{% endif %}">
+                        <span class="msg-author">{{ m.sender_name }}</span>
+
+                        {% if m.text %}
+                            <p>{{ m.text }}</p>
+                        {% endif %}
+
+                        {% if m.file_path %}
+                            <div class="msg-attachment">
+                                {% if m.file_type == 'image' %}
+                                    <img src="/uploads/{{ m.file_path }}">
+                                {% elif m.file_type == 'video' %}
+                                    <video src="/uploads/{{ m.file_path }}" controls></video>
+                                {% else %}
+                                    <a class="file-link" href="/uploads/{{ m.file_path }}" download>Файл</a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <span class="msg-time">{{ m.timestamp }}</span>
+
+                        {% if m.sender_id == session.user_id %}
+                            <span class="msg-status" data-message-id="{{ m.id }}">
+                                {% if m.read_at %}✓✓{% elif m.delivered_at %}✓✓{% else %}✓{% endif %}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <aside id="emoji-panel" class="emoji-panel-side">
+            </aside>
+        </div>
+
+        <!-- ✅ PREVIEW БЛОК -->
+        <div id="file-preview-container" class="file-preview-container hidden">
+            <div class="file-preview-box">
+                <button type="button" id="remove-file">✕</button>
+
+                <div id="preview-content"></div>
+
+                <div class="file-info">
+                    <span id="file-name"></span>
+                    <span id="file-size"></span>
                 </div>
-            {% endfor %}
+            </div>
         </div>
+
+        <!-- ✅ ФОРМА -->
         <form method="POST" class="chat-input-area" enctype="multipart/form-data">
-            <label class="attach-label">+<input type="file" name="file" style="display:none;"></label>
-            <input type="text" name="text" placeholder="Сообщение...">
+            <label class="attach-label">
+                +
+                <input type="file" id="file-input" name="file" style="display:none;">
+            </label>
+            <input type="text" id="message-input" name="text" placeholder="Сообщение...">
             <button type="submit" class="btn-primary btn-auto send-btn">Отправить</button>
         </form>
     </div>
 </div>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
 <script>
-    const chatBox = document.getElementById("chat-box");
-    chatBox.scrollTop = chatBox.scrollHeight;
+const chatBox = document.getElementById("chat-box");
+chatBox.scrollTop = chatBox.scrollHeight;
 
-    function appendMessage(m) {
-        const msgDiv = document.createElement("div");
-        msgDiv.className = "message " + (m.is_mine ? "my-message" : "other-message");
+/* ================= PREVIEW ================= */
 
-        const author = document.createElement("span");
-        author.className = "msg-author";
-        author.textContent = m.sender_name;
-        msgDiv.appendChild(author);
+const fileInput = document.getElementById("file-input");
+const previewContainer = document.getElementById("file-preview-container");
+const previewContent = document.getElementById("preview-content");
+const fileName = document.getElementById("file-name");
+const fileSize = document.getElementById("file-size");
+const removeBtn = document.getElementById("remove-file");
+const emojiPanel = document.getElementById("emoji-panel");
+const messageInput = document.getElementById("message-input");
 
-        if (m.text) {
-            const text = document.createElement("p");
-            text.textContent = m.text;
-            msgDiv.appendChild(text);
-        }
+const BASIC_EMOJIS = [
+    "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚",
+    "😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣",
+    "😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗",
+    "🤔","🫣","🤭","🫢","🫡","🤫","🫠","🤥","😶","😶‍🌫️","😐","🫤","😑","😬","🙄","😯","😦","😧","😮","😲",
+    "🥱","😴","🤤","😪","😮‍💨","😵","😵‍💫","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","💀",
+    "☠️","👻","👽","🤖","💩","🙈","🙉","🙊","👋","🤚","🖐️","✋","🖖","🫱","🫲","🫳","🫴","👌","🤌","🤏",
+    "✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌",
+    "🫶","👐","🤲","🙏","✍️","💪","🦾","🦿","🫀","🫁","🧠","🦷","🦴","👀","👁️","👅","👄","❤️","🧡","💛",
+    "💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💯","💢","💥","💫","💦",
+    "💨","🕳️","💣","💬","🗨️","🗯️","💭","🔥","⭐","🌟","✨","⚡","☀️","🌈","☔","❄️","🌊","🍏","🍎","🍐",
+    "🍊","🍋","🍌","🍉","🍇","🍓","🍒","🍑","🍍","🥭","🍅","🥕","🌽","🥔","🍞","🧀","🍗","🍕","🍔","🍟",
+    "🌭","🥪","🌮","🌯","🍜","🍝","🍣","🍩","🍪","🎂","🍫","🍿","☕","🍵","🥤","⚽","🏀","🏈","⚾","🎾",
+    "🎯","🎮","🎲","🎵","🎶","🎤","🎧","🎷","🎸","🎹","🥁","🚗","🚌","🚕","🚓","🚑","🚒","🚲","✈️","🚀",
+    "🛸","⌚","📱","💻","⌨️","🖥️","🖱️","📷","📹","💡","🔋","🔌","🧭","⏰","📌","✂️","🔒","🔑","🧸","🎁",
+    "🏆","🏅","🥇","🥈","🥉","✅","✔️","❌","⭕","❗","❓","➕","➖","➗","➰","➿","♻️","⚠️","🚫","🔔"
+];
 
-        if (m.file_path) {
-            const wrap = document.createElement("div");
-            wrap.className = "msg-attachment";
-
-            if (m.file_type === "image") {
-                const img = document.createElement("img");
-                img.src = "/uploads/" + m.file_path;
-                wrap.appendChild(img);
-            } else if (m.file_type === "video") {
-                const video = document.createElement("video");
-                video.src = "/uploads/" + m.file_path;
-                video.controls = true;
-                wrap.appendChild(video);
-            } else {
-                const link = document.createElement("a");
-                link.className = "file-link";
-                link.href = "/uploads/" + m.file_path;
-                link.download = "";
-                link.textContent = "Файл";
-                wrap.appendChild(link);
-            }
-
-            msgDiv.appendChild(wrap);
-        }
-
-        const time = document.createElement("span");
-        time.className = "msg-time";
-        time.textContent = m.timestamp;
-        msgDiv.appendChild(time);
-
-        if (m.is_mine) {
-            const status = document.createElement("span");
-            status.className = "msg-status";
-            status.dataset.messageId = String(m.id);
-            status.textContent = m.status === "read" || m.status === "delivered" ? "✓✓" : "✓";
-            if (m.status === "read") {
-                status.classList.add("read");
-            }
-            msgDiv.appendChild(status);
-        }
-
-        chatBox.appendChild(msgDiv);
-    }
-
-    function applyMessageStatus(messageId, status) {
-        const el = document.querySelector(`.msg-status[data-message-id="${messageId}"]`);
-        if (!el) return;
-        if (status === "read") {
-            el.textContent = "✓✓";
-            el.classList.add("read");
-        } else if (status === "delivered") {
-            el.textContent = "✓✓";
-            el.classList.remove("read");
-        } else {
-            el.textContent = "✓";
-            el.classList.remove("read");
-        }
-    }
-
-    async function fetchNewMessages() {
-        const lastId = Number(chatBox.dataset.lastId || "0");
-        try {
-            const res = await fetch(`/chat/{{ chat_id }}/messages?after_id=${lastId}`, { cache: "no-store" });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data.messages || data.messages.length === 0) return;
-
-            for (const m of data.messages) {
-                appendMessage(m);
-                chatBox.dataset.lastId = String(m.id);
-            }
-            chatBox.scrollTop = chatBox.scrollHeight;
-        } catch (e) {
-            // ignore temporary network errors during polling
-        }
-    }
-
-    if (typeof io === "function") {
-        const socket = io();
-        socket.emit("join_chat", { chat_id: {{ chat_id }} });
-        socket.on("new_message", function(m) {
-            const currentLastId = Number(chatBox.dataset.lastId || "0");
-            if (!m || !m.id || m.id <= currentLastId) return;
-            appendMessage(m);
-            chatBox.dataset.lastId = String(m.id);
-            chatBox.scrollTop = chatBox.scrollHeight;
+function renderEmojiPanel() {
+    if (!emojiPanel) return;
+    const frag = document.createDocumentFragment();
+    BASIC_EMOJIS.forEach((emoji) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = emoji;
+        btn.style.border = "none";
+        btn.style.background = "transparent";
+        btn.style.cursor = "pointer";
+        btn.style.fontSize = "20px";
+        btn.style.padding = "4px";
+        btn.title = emoji;
+        btn.addEventListener("click", () => {
+            if (!messageInput) return;
+            messageInput.value += emoji;
+            messageInput.focus();
         });
-        socket.on("message_status", function(payload) {
-            if (!payload || !payload.message_id || !payload.status) return;
-            applyMessageStatus(payload.message_id, payload.status);
-        });
+        frag.appendChild(btn);
+    });
+    emojiPanel.appendChild(frag);
+}
+
+renderEmojiPanel();
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+fileInput.addEventListener("change", function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    previewContent.innerHTML = "";
+
+    if (file.type.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        previewContent.appendChild(img);
+    } else if (file.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        previewContent.appendChild(video);
     } else {
-        setInterval(fetchNewMessages, 2500);
+        const icon = document.createElement("div");
+        icon.textContent = file.name.split('.').pop().toUpperCase();
+        previewContent.appendChild(icon);
     }
+
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+
+    previewContainer.classList.remove("hidden");
+});
+
+/* удалить файл */
+removeBtn.addEventListener("click", () => {
+    fileInput.value = "";
+    previewContainer.classList.add("hidden");
+});
+
+/* очистка после отправки */
+document.querySelector(".chat-input-area").addEventListener("submit", () => {
+    previewContainer.classList.add("hidden");
+});
+
+/* ================= SOCKET ================= */
+
+function appendMessage(m) {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "message " + (m.is_mine ? "my-message" : "other-message");
+
+    const author = document.createElement("span");
+    author.className = "msg-author";
+    author.textContent = m.sender_name;
+    msgDiv.appendChild(author);
+
+    if (m.text) {
+        const text = document.createElement("p");
+        text.textContent = m.text;
+        msgDiv.appendChild(text);
+    }
+
+    if (m.file_path) {
+        const wrap = document.createElement("div");
+
+        if (m.file_type === "image") {
+            const img = document.createElement("img");
+            img.src = "/uploads/" + m.file_path;
+            wrap.appendChild(img);
+        } else if (m.file_type === "video") {
+            const video = document.createElement("video");
+            video.src = "/uploads/" + m.file_path;
+            video.controls = true;
+            wrap.appendChild(video);
+        } else {
+            const link = document.createElement("a");
+            link.href = "/uploads/" + m.file_path;
+            link.textContent = "Файл";
+            link.download = "";
+            wrap.appendChild(link);
+        }
+
+        msgDiv.appendChild(wrap);
+    }
+
+    const time = document.createElement("span");
+    time.textContent = m.timestamp;
+    msgDiv.appendChild(time);
+
+    chatBox.appendChild(msgDiv);
+}
+
+/* SOCKET.IO */
+if (typeof io === "function") {
+    const socket = io();
+    socket.emit("join_chat", { chat_id: {{ chat_id }} });
+
+    socket.on("new_message", function(m) {
+        appendMessage(m);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+}
 </script>
+
 {% endblock %}
