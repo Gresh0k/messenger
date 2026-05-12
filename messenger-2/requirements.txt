@@ -1,0 +1,5 @@
+bcrypt
+Flask
+Flask-SocketIO
+python-socketio
+Werkzeug

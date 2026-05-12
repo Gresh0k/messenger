@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dialogs-card">
+    <h3>Избранное</h3>
+    <p style="margin-top: 10px; color: #777;">
+        Как в Telegram: здесь только чаты, которые вы отметили звездой.
+    </p>
+</div>
+
+<h3 class="dialogs-title">Избранные чаты</h3>
+{% if dialogs %}
+    {% for d in dialogs %}
+        <div class="dialog-item">
+            <a href="{{ url_for('view_chat', chat_id=d.id) }}" style="text-decoration:none; display:block; flex:1;">
+                <div class="dialog-content">
+                    <div class="dialog-name">{% if d.is_group == 1 %}👥 {% endif %}{{ d.display_name }}</div>
+                    <div class="dialog-preview">
+                        {% if d.last_text %}
+                            {{ d.last_text }}
+                        {% elif d.last_file_path %}
+                            {% if d.last_file_type == 'image' %}
+                                Фото
+                            {% elif d.last_file_type == 'video' %}
+                                Видео
+                            {% else %}
+                                Файл
+                            {% endif %}
+                        {% else %}
+                            Сообщений пока нет
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="dialog-time">{{ d.last_timestamp if d.last_timestamp else "" }}</div>
+            </a>
+            <form method="POST" action="{{ url_for('toggle_chat_favorite', chat_id=d.id) }}" style="margin-left: 10px;">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn-primary btn-auto">Убрать ★</button>
+            </form>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">Избранное пусто. Нажмите ☆ возле чата, чтобы добавить его сюда.</div>
+{% endif %}
+{% endblock %}

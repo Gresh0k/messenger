@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="terms-card">
+    <h1 style="text-align: center; color: #0084ff;">Политика обработки персональных данных</h1>
+    <p style="text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;">
+        Последнее обновление: {{ date }}
+    </p>
+
+    <div class="terms-content">
+        <section>
+            <h2>1. Какие данные мы обрабатываем</h2>
+            <p>Логин, пароль (в виде хеша), дату рождения, email, номер телефона, а также сообщения и вложения в чатах.</p>
+        </section>
+        <section>
+            <h2>2. Цель обработки</h2>
+            <p>Предоставление доступа к аккаунту, работа мессенджера, поддержка связи между пользователями и улучшение стабильности сервиса.</p>
+        </section>
+        <section>
+            <h2>3. Хранение данных</h2>
+            <p>Данные хранятся в базе проекта Keepy. Мы принимаем разумные меры защиты, но учебный проект не дает гарантий уровня промышленной инфраструктуры.</p>
+        </section>
+        <section>
+            <h2>4. Права пользователя</h2>
+            <p>Пользователь может обновить данные профиля и прекратить использование сервиса. При вопросах можно обратиться на <a href="mailto:admin@keepy.ru">admin@keepy.ru</a>.</p>
+        </section>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px;">
+        <a href="/" class="btn-primary btn-auto" style="padding: 12px 34px;">
+            Назад
+        </a>
+    </div>
+</div>
+{% endblock %}

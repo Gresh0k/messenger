@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keepy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="page-transition page-preload">
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <img
+                src="{{ url_for('static', filename='images/logo.png') }}"
+                alt="KEEPY logo"
+                class="brand-logo"
+                onerror="if(!this.dataset.fallback1){this.dataset.fallback1='1';this.src='{{ url_for('static', filename='img/logo.png') }}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='{{ url_for('static', filename='logo.png') }}';}else{this.style.display='none';}"
+            >
+            <span class="logo">KEEPY</span>
+        </a>
+        <div class="nav-links">
+            {% if session.user_id %}
+                <div class="nav-actions">
+                    <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
+                    <a href="/contacts" class="nav-btn nav-btn-ghost">Контакты</a>
+                    <a href="/logout" class="nav-btn nav-btn-primary">Выйти</a>
+                </div>
+            {% else %}
+                <div class="nav-actions">
+                    <a href="/developers" class="nav-btn nav-btn-ghost">Разработчики</a>
+                    <a href="/login" class="nav-btn nav-btn-primary">Войти</a>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-stack" aria-live="polite" aria-atomic="true">
+                {% for m in messages %}
+                    <div class="flash">{{ m }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    {% if session.user_id %}
+    <nav class="bottom-nav">
+        <a href="{{ url_for('profile') }}" class="bottom-nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Профиль</span>
+        </a>
+        <a href="{{ url_for('favorites') }}" class="bottom-nav-item {% if request.endpoint == 'favorites' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Избранное</span>
+        </a>
+        <a href="{{ url_for('chats_list') }}" class="bottom-nav-item {% if request.endpoint in ['chats_list', 'view_chat'] %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Чаты</span>
+        </a>
+        <a href="{{ url_for('app_settings') }}" class="bottom-nav-item {% if request.endpoint == 'app_settings' %}active{% endif %}">
+            <svg class="bottom-nav-icon" viewBox="0 0 512 512" aria-hidden="true">
+                <g fill="currentColor" transform="translate(256 256)">
+                    <rect x="-26" y="-242" width="52" height="86" rx="12"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(45)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(90)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(135)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(180)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(225)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(270)"/>
+                    <rect x="-26" y="-242" width="52" height="86" rx="12" transform="rotate(315)"/>
+                    <circle r="166"/>
+                    <circle r="74" fill="#121212"/>
+                </g>
+            </svg>
+            <span>Настройки</span>
+        </a>
+    </nav>
+    {% endif %}
+    <script>
+        (function () {
+            const TRANSITION_MS = 180;
+            let isLeaving = false;
+
+            function isInternalLink(anchor) {
+                if (!anchor || !anchor.href) return false;
+                if (anchor.target && anchor.target !== "_self") return false;
+                if (anchor.hasAttribute("download")) return false;
+                if (anchor.getAttribute("rel") === "external") return false;
+                if (anchor.getAttribute("href").startsWith("#")) return false;
+                return anchor.origin === window.location.origin;
+            }
+
+            function startLeaveTransition(nextUrl) {
+                if (isLeaving) return;
+                isLeaving = true;
+                document.body.classList.add("page-leave");
+                window.setTimeout(() => {
+                    window.location.href = nextUrl;
+                }, TRANSITION_MS);
+            }
+
+            window.addEventListener("pageshow", () => {
+                document.body.classList.remove("page-preload");
+            });
+
+            function initFlashToasts() {
+                const toasts = Array.from(document.querySelectorAll(".flash-stack .flash"));
+                if (!toasts.length) return;
+
+                toasts.forEach((toast, index) => {
+                    window.setTimeout(() => {
+                        toast.classList.add("hide");
+                    }, 1600 + (index * 120));
+
+                    window.setTimeout(() => {
+                        toast.remove();
+                    }, 2100 + (index * 120));
+                });
+            }
+
+            initFlashToasts();
+
+            document.addEventListener("click", (event) => {
+                if (event.defaultPrevented) return;
+                if (event.button !== 0) return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+                const anchor = event.target.closest("a");
+                if (!isInternalLink(anchor)) return;
+                if (anchor.href === window.location.href) return;
+
+                event.preventDefault();
+                startLeaveTransition(anchor.href);
+            });
+        })();
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
