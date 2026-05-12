@@ -401,7 +401,15 @@ def privacy():
 
 @app.route("/developers")
 def developers():
-    return render_template("developers.html")
+    promo_screenshots = ["piar.png"]
+    promo_gallery_urls = [
+        url_for("static", filename="images/" + name) for name in promo_screenshots
+    ]
+    return render_template(
+        "developers.html",
+        promo_screenshots=promo_screenshots,
+        promo_gallery_urls=promo_gallery_urls,
+    )
 
 
 @app.route("/gear")

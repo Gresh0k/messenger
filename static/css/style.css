@@ -268,6 +268,166 @@ a:hover { color: #0056b3; }
 .developer-item h3 { margin-bottom: 8px; }
 .developer-item p { margin: 4px 0; }
 
+.developers-repo-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+.developers-repo-title {
+    font-size: 1.25rem;
+    margin: 0 0 8px;
+}
+.developers-promo-heading {
+    font-size: 1.1rem;
+    margin: 24px 0 8px;
+}
+.developers-repo-desc,
+.developers-promo-desc {
+    margin: 0 0 8px;
+    color: #667085;
+    font-size: 15px;
+}
+.developers-github-link-wrap {
+    margin: 0 0 4px;
+    word-break: break-all;
+}
+.developers-promo-gallery {
+    display: grid;
+    gap: 16px;
+    margin-top: 12px;
+}
+.developers-promo-figure {
+    margin: 0;
+    width: 100%;
+    max-width: 480px;
+    height: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+.developers-promo-figure img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+}
+.developers-promo-open {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    cursor: zoom-in;
+    border-radius: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+.developers-promo-open:focus-visible {
+    outline: 2px solid #0084ff;
+    outline-offset: 2px;
+}
+
+/* Лайтбокс галереи (страница разработчиков) */
+.promo-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 56px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(4px);
+}
+.promo-lightbox[hidden] {
+    display: none;
+}
+.promo-lightbox-dialog {
+    position: relative;
+    max-width: min(1100px, 92vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.promo-lightbox-img {
+    max-width: 100%;
+    max-height: min(82vh, 900px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.promo-lightbox-counter {
+    margin: 0;
+    font-size: 14px;
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+.promo-lightbox-close,
+.promo-lightbox-prev,
+.promo-lightbox-next {
+    position: fixed;
+    border: 0;
+    cursor: pointer;
+    color: #f1f5f9;
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.promo-lightbox-close:hover,
+.promo-lightbox-prev:hover,
+.promo-lightbox-next:hover {
+    background: rgba(51, 65, 85, 0.95);
+    color: #fff;
+}
+.promo-lightbox-close {
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4010;
+}
+.promo-lightbox-prev,
+.promo-lightbox-next {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+    padding: 0;
+    z-index: 4010;
+}
+.promo-lightbox-prev { left: 12px; }
+.promo-lightbox-next { right: 12px; }
+.promo-lightbox-prev:focus-visible,
+.promo-lightbox-next:focus-visible,
+.promo-lightbox-close:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}
+
 /* СТРАНИЦА СОГЛАШЕНИЯ */
 .terms-card { background: #fff; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
 .landing-card-dark {
@@ -558,6 +718,7 @@ body {
 .contact-item,
 .developers-card,
 .developer-item,
+.developers-promo-figure,
 .profile-card,
 .terms-card,
 .auth-box,
@@ -586,6 +747,15 @@ body {
     border-color: #334155;
 }
 .terms-content p { color: #cbd5e1; }
+
+.developers-repo-section {
+    border-top-color: #334155;
+}
+.developers-subtitle,
+.developers-repo-desc,
+.developers-promo-desc {
+    color: #94a3b8;
+}
 
 .file-link {
     background: #334155;
